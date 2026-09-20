@@ -26,8 +26,13 @@ hand-written SigV4 signer, because the original's structure — a single 1150-li
 window that called into a vendor SDK from a background goroutine — is what made
 its bugs hard to fix in the first place.
 
+## Screenshot
+
+<img src="assets/screenshot.png" alt="S3 Desktop browsing a bucket" width="880">
+
 ## Contents
 
+- [Screenshot](#screenshot)
 - [What it does](#what-it-does)
 - [Differences from the original, and why](#differences-from-the-original-and-why)
 - [Build](#build)

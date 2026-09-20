@@ -53,8 +53,8 @@ namespace {
 /// repository's default branch and compares against it.
 const char *kVersion = "0.1.0";
 
-const char *kProjectUrl = "https://github.com/halo/s3desktop";
-const char *kVersionUrl = "https://raw.githubusercontent.com/halo/s3desktop/refs/heads/main/VERSION";
+const char *kProjectUrl = "https://github.com/nuoyax/s3desktop";
+const char *kVersionUrl = "https://raw.githubusercontent.com/nuoyax/s3desktop/refs/heads/main/VERSION";
 
 /// Page size for a listing. The original used 500 and updated the UI every
 /// 500ms; here the page size is the same because it balances request count
