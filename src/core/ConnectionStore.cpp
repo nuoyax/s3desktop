@@ -37,7 +37,7 @@ ConnectionStore::~ConnectionStore() = default;
 bool ConnectionStore::load(QString *warning) {
     m_configDir = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
     if (m_configDir.isEmpty()) {
-        m_configDir = QDir::homePath() + QStringLiteral("/.us3qt");
+        m_configDir = QDir::homePath() + QStringLiteral("/.bucketexplorer");
     }
     if (!QDir().mkpath(m_configDir)) {
         if (warning) {

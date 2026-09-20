@@ -32,7 +32,7 @@ bool dpapiProtect(const QByteArray &plain, QByteArray *out, QString *error) {
     in.cbData = static_cast<DWORD>(plain.size());
 
     DATA_BLOB result{};
-    if (!CryptProtectData(&in, L"us3qt", nullptr, nullptr, nullptr, 0, &result)) {
+    if (!CryptProtectData(&in, L"BucketExplorer", nullptr, nullptr, nullptr, 0, &result)) {
         if (error) {
             *error = QStringLiteral("CryptProtectData failed with error %1").arg(GetLastError());
         }

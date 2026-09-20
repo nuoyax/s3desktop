@@ -27,8 +27,8 @@ Q_DECLARE_LOGGING_CATEGORY(app)
 
 /// Direct Qt's messages into the log file and open it.
 ///
-/// `path` empty means the default location, or US3QT_LOG if set. Setting
-/// US3QT_LOG=off disables logging entirely, which matters when the log file is
+/// `path` empty means the default location, or BUCKETEXPLORER_LOG if set. Setting
+/// BUCKETEXPLORER_LOG=off disables logging entirely, which matters when the log file is
 /// itself suspected of causing trouble. Safe to call once, early in main();
 /// calling it twice is a no-op. Returns the file actually opened, or empty.
 QString install(const QString &path = {});

@@ -70,7 +70,7 @@ QString elide(const QString &text, int limit = 60) {
 } // namespace
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
-    setWindowTitle(QStringLiteral("US3"));
+    setWindowTitle(QStringLiteral("BucketExplorer"));
     setAcceptDrops(true);
     resize(1180, 720);
 
@@ -541,7 +541,7 @@ void MainWindow::applyConfigToUi() {
 }
 
 void MainWindow::updateWindowTitle() {
-    QString title = QStringLiteral("US3");
+    QString title = QStringLiteral("BucketExplorer");
     if (!m_config.name.isEmpty()) {
         title += QStringLiteral(" — ") + m_config.name;
     }

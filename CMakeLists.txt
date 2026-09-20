@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(us3qt
+project(bucketexplorer
     VERSION 0.1.0
-    DESCRIPTION "Universal S3 UI - Qt edition"
+    DESCRIPTION "A desktop browser for S3-compatible object storage"
     LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -15,7 +15,7 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
 endif()
 
-option(US3QT_BUILD_TESTS "Build unit tests" ON)
+option(BUCKETEXPLORER_BUILD_TESTS "Build unit tests" ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network)
 
@@ -23,7 +23,7 @@ find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network)
 # Core library: S3 transport, config, credentials, transfers.
 # Kept separate from the GUI so tests can link it without a display.
 # ---------------------------------------------------------------------------
-add_library(us3qt_core STATIC
+add_library(bucketexplorer_core STATIC
     src/core/Log.cpp
     src/core/Log.h
     src/core/SigV4.cpp
@@ -45,13 +45,13 @@ add_library(us3qt_core STATIC
     src/compat/TargetProfile.h
 )
 
-target_include_directories(us3qt_core PUBLIC src)
-target_link_libraries(us3qt_core PUBLIC Qt6::Core Qt6::Network)
+target_include_directories(bucketexplorer_core PUBLIC src)
+target_link_libraries(bucketexplorer_core PUBLIC Qt6::Core Qt6::Network)
 
 # DPAPI lives in Crypt32; linking it here rather than at the executable keeps
 # the dependency attached to the code that actually calls CryptProtectData.
 if(WIN32)
-    target_link_libraries(us3qt_core PUBLIC crypt32)
+    target_link_libraries(bucketexplorer_core PUBLIC crypt32)
 endif()
 
 # ---------------------------------------------------------------------------
@@ -61,7 +61,7 @@ endif()
 # widget-level logic — the object model, the theme — can be tested without
 # launching the whole window. Everything below needs Widgets.
 # ---------------------------------------------------------------------------
-add_library(us3qt_ui STATIC
+add_library(bucketexplorer_ui STATIC
     src/ui/Theme.cpp
     src/ui/Theme.h
     src/ui/ObjectModel.cpp
@@ -78,24 +78,24 @@ add_library(us3qt_ui STATIC
     src/ui/MainWindow.h
 )
 
-target_link_libraries(us3qt_ui PUBLIC
-    us3qt_core
+target_link_libraries(bucketexplorer_ui PUBLIC
+    bucketexplorer_core
     Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network)
 
 # ---------------------------------------------------------------------------
 # GUI executable
 # ---------------------------------------------------------------------------
-add_executable(us3qt WIN32
+add_executable(bucketexplorer WIN32
     src/main.cpp
     assets/resources.qrc
 )
 
-target_link_libraries(us3qt PRIVATE us3qt_ui)
+target_link_libraries(bucketexplorer PRIVATE bucketexplorer_ui)
 
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
-if(US3QT_BUILD_TESTS)
+if(BUCKETEXPLORER_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif()

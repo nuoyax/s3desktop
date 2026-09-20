@@ -16,10 +16,10 @@
 
 namespace us3 {
 
-Q_LOGGING_CATEGORY(Log::net, "us3.net")
-Q_LOGGING_CATEGORY(Log::core, "us3.core")
-Q_LOGGING_CATEGORY(Log::ui, "us3.ui")
-Q_LOGGING_CATEGORY(Log::app, "us3.app")
+Q_LOGGING_CATEGORY(Log::net, "bucketexplorer.net")
+Q_LOGGING_CATEGORY(Log::core, "bucketexplorer.core")
+Q_LOGGING_CATEGORY(Log::ui, "bucketexplorer.ui")
+Q_LOGGING_CATEGORY(Log::app, "bucketexplorer.app")
 
 namespace {
 
@@ -33,12 +33,12 @@ bool g_installed = false;
 /// suspected of causing trouble.
 bool loggingDisabledByEnv() {
     const QString v =
-        QProcessEnvironment::systemEnvironment().value(QStringLiteral("US3QT_LOG")).trimmed().toLower();
+        QProcessEnvironment::systemEnvironment().value(QStringLiteral("BUCKETEXPLORER_LOG")).trimmed().toLower();
     return v == QStringLiteral("off") || v == QStringLiteral("none") || v == QStringLiteral("0");
 }
 
 QString explicitPathFromEnv() {
-    return QProcessEnvironment::systemEnvironment().value(QStringLiteral("US3QT_LOG")).trimmed();
+    return QProcessEnvironment::systemEnvironment().value(QStringLiteral("BUCKETEXPLORER_LOG")).trimmed();
 }
 
 /// A timestamp with milliseconds: upload and listing failures are often a
@@ -110,7 +110,7 @@ QString Log::install(const QString &path) {
 
     QString dir = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
     if (dir.isEmpty()) {
-        dir = QDir::homePath() + QStringLiteral("/.us3qt");
+        dir = QDir::homePath() + QStringLiteral("/.bucketexplorer");
     }
     QDir().mkpath(dir);
 
@@ -118,7 +118,7 @@ QString Log::install(const QString &path) {
     if (g_path.isEmpty()) {
         const QString fromEnv = explicitPathFromEnv();
         g_path = !fromEnv.isEmpty() ? fromEnv
-                                    : QDir(dir).filePath(QStringLiteral("us3qt.log"));
+                                    : QDir(dir).filePath(QStringLiteral("bucketexplorer.log"));
     }
 
     // One prior log is kept: enough to diagnose an intermittent failure across a

@@ -1,4 +1,4 @@
-# us3qt
+# BucketExplorer
 
 **English** | [中文](README.zh-CN.md)
 
@@ -66,7 +66,7 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
 cmake --build build
 ```
 
-The binary lands at `build/us3qt.exe`. On Windows it is built as a GUI
+The binary lands at `build/bucketexplorer.exe`. On Windows it is built as a GUI
 subsystem executable, so it will not attach a console window.
 
 ## Tests
@@ -90,8 +90,9 @@ Five suites, none of which need a display or a network:
 
 ## Logs
 
-Every run writes `us3qt.log` beside `settings.json` — on Windows that is
-`%LOCALAPPDATA%\us3qt\us3qt\`. The previous run is kept as `us3qt.log.1`.
+Every run writes `bucketexplorer.log` beside `settings.json` — on Windows that is
+`%LOCALAPPDATA%\bucketexplorer\bucketexplorer\`. The previous run is kept as
+`bucketexplorer.log.1`.
 
 Each request records the URL that was actually built, the host that was actually
 signed, the port used, and the credential store's verdict on the secret. A
@@ -99,7 +100,7 @@ failure adds the HTTP status, the server's `<Code>` and request id, and the
 response body, which for a signature problem is the only place the real reason
 appears. Secrets are redacted to four characters and two.
 
-`US3QT_LOG` overrides the path, or turns logging off with `off`.
+`BUCKETEXPLORER_LOG` overrides the path, or turns logging off with `off`.
 
 ## Layout
 

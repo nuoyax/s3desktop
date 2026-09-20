@@ -18,16 +18,16 @@
 /// flags are present they win over the environment.
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
-    QApplication::setApplicationName(QStringLiteral("us3qt"));
+    QApplication::setApplicationName(QStringLiteral("bucketexplorer"));
     QApplication::setApplicationVersion(QStringLiteral("0.1.0"));
-    QApplication::setOrganizationName(QStringLiteral("us3qt"));
-    QApplication::setOrganizationDomain(QStringLiteral("us3qt.local"));
+    QApplication::setOrganizationName(QStringLiteral("bucketexplorer"));
+    QApplication::setOrganizationDomain(QStringLiteral("bucketexplorer.local"));
 
     // Logging goes up before anything else can fail, and before the parser, so
     // that even a bad command line is recorded.
     const QString logPath = us3::Log::install();
     us3::Log::write(us3::Log::app(), 0,
-                    QStringLiteral("us3qt %1 starting  pid=%2  log=%3")
+                    QStringLiteral("BucketExplorer %1 starting  pid=%2  log=%3")
                         .arg(QApplication::applicationVersion())
                         .arg(QCoreApplication::applicationPid())
                         .arg(logPath.isEmpty() ? QStringLiteral("(disabled)") : logPath));

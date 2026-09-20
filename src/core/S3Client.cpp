@@ -154,7 +154,7 @@ QNetworkReply *S3Client::send(const QByteArray &method,
     QNetworkRequest req{QUrl(url)};
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                      QNetworkRequest::NoLessSafeRedirectPolicy);
-    req.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("us3qt/1.0"));
+    req.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("bucketexplorer/1.0"));
     req.setTransferTimeout(60000);
 
     if (!contentType.isEmpty()) {
@@ -454,7 +454,7 @@ int S3Client::uploadFile(const QString &localPath, const QString &objectName,
     const QString path = objectPath(m_cfg.bucket, objectName);
     QNetworkRequest req{QUrl(requestUrl(path, {}))};
     req.setHeader(QNetworkRequest::ContentLengthHeader, total);
-    req.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("us3qt/1.0"));
+    req.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("bucketexplorer/1.0"));
     req.setTransferTimeout(0); // large uploads must not be cut off mid-stream
 
     QSslConfiguration ssl = req.sslConfiguration();
