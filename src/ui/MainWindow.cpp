@@ -270,11 +270,15 @@ void MainWindow::buildActions() {
     connect(m_actExit, &QAction::triggered, this, &QWidget::close);
     connect(m_actBuckets, &QAction::triggered, this, &MainWindow::onManageBuckets);
     connect(m_actColumns, &QAction::triggered, this, [this]() {
-        QMessageBox::information(
-            this, QStringLiteral("Columns"),
-            QStringLiteral("The object table shows Name, Size and Modified.\n\n"
-                           "Drag a column divider to resize it, or click a header to sort by "
-                           "that column."));
+        // The bucket level has no size to show and no folder column, so the text
+        // has to describe whichever table is actually on screen.
+        const QString columns = m_model->showingBuckets()
+                                    ? QStringLiteral("The bucket table shows Name and Created.\n\n")
+                                    : QStringLiteral("The object table shows Name, Size and Modified.\n\n");
+        QMessageBox::information(this, QStringLiteral("Columns"),
+                                 columns + QStringLiteral(
+                                               "Drag a column divider to resize it, or click a header "
+                                               "to sort by that column."));
     });
     connect(m_actVersion, &QAction::triggered, this, &MainWindow::onCheckVersion);
     connect(m_actAbout, &QAction::triggered, this, &MainWindow::onAbout);
