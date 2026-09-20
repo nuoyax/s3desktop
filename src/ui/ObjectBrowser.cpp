@@ -18,10 +18,21 @@ namespace us3 {
 namespace {
 
 /// A small tool button in the Fluent style: icon only, no border until hovered.
+///
+/// The icon carries both a normal and a disabled pixmap. A stylesheet's `color`
+/// does not tint a QIcon, so without the disabled pixmap Qt keeps drawing the
+/// full-strength glyph on a greyed-out button — the button then reads as
+/// clickable while doing nothing. Registering the faded pixmap is what makes a
+/// disabled Up/Back/Forward actually look disabled.
 QToolButton *navButton(Theme::Glyph glyph, const QString &tip) {
     auto *b = new QToolButton;
     b->setObjectName(QStringLiteral("crumbNav"));
-    b->setIcon(Theme::icon(glyph));
+
+    QIcon icon = Theme::icon(glyph);
+    const int px = Theme::iconSize;
+    icon.addPixmap(Theme::icon(glyph, Theme::textFaint()).pixmap(px, px), QIcon::Disabled);
+    b->setIcon(icon);
+
     b->setIconSize(QSize(Theme::iconSize, Theme::iconSize));
     b->setToolTip(tip);
     b->setAutoRaise(true);

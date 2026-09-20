@@ -1,7 +1,9 @@
 #include "core/S3Types.h"
 #include "ui/ObjectBrowser.h"
 #include "ui/ObjectModel.h"
+#include "ui/Theme.h"
 
+#include <QImage>
 #include <QLabel>
 #include <QSignalSpy>
 #include <QTableView>
@@ -38,6 +40,7 @@ private slots:
     void breadcrumbNamesTheBucketAndEverySegment();
     void breadcrumbOffersTheBucketListOnlyWhenItExists();
     void bucketRowsAreNotSelectableAsObjects();
+    void upIsDisabledAtTheBucketListAndLooksIt();
 };
 
 namespace {
@@ -109,6 +112,31 @@ BucketInfo makeBucket(const QString &name) {
     return bucket;
 }
 
+/// How much ink a glyph carries, summed over its pixels.
+///
+/// The two pixmaps are the same shape drawn in two colours, so their alpha masks
+/// are identical and counting covered pixels would report them as equal. What
+/// actually differs is darkness, and that is what the eye reads as "greyed out",
+/// so the metric has to fold alpha and luminance together: a fully opaque black
+/// pixel scores 255, a faint grey one scores far less.
+double inkWeight(const QPixmap &pm) {
+    if (pm.isNull()) {
+        return -1.0;
+    }
+    const QImage image = pm.toImage().convertToFormat(QImage::Format_ARGB32);
+    double total = 0.0;
+    for (int y = 0; y < image.height(); ++y) {
+        for (int x = 0; x < image.width(); ++x) {
+            const QRgb px = image.pixel(x, y);
+            const double alpha = qAlpha(px) / 255.0;
+            const double luma =
+                (0.299 * qRed(px) + 0.587 * qGreen(px) + 0.114 * qBlue(px)) / 255.0;
+            total += alpha * (1.0 - luma);
+        }
+    }
+    return total;
+}
+
 ObjectInfo makeObject(const QString &key) {
     ObjectInfo object;
     object.key = key;
@@ -120,6 +148,60 @@ ObjectInfo makeObject(const QString &key) {
 // ---------------------------------------------------------------------------
 // The baseline
 // ---------------------------------------------------------------------------
+
+void TestObjectBrowser::upIsDisabledAtTheBucketListAndLooksIt() {
+    ObjectBrowser *browser = makeBrowser();
+    browser->setBucketListAvailable(true);
+    browser->setShowingBuckets(true);
+
+    // The bucket list is the top level: there is nothing above it to go up to,
+    // so up must be inert rather than silently doing nothing when clicked.
+    QVERIFY(!browser->canGoUp());
+
+    QToolButton *up = upButton(browser);
+    QVERIFY(up);
+    QVERIFY(!up->isEnabled());
+
+    // Clicking it anyway must not move anything: a disabled button is inert, but
+    // the shortcut path and a synthetic click do not both go through Qt's
+    // disabled check, so the handler guards on canGoUp() as well.
+    QSignalSpy bucketsSpy(browser, &ObjectBrowser::bucketsRequested);
+    QSignalSpy loadSpy(browser, &ObjectBrowser::loadRequested);
+    browser->navigateUp();
+    QCOMPARE(bucketsSpy.count(), 0);
+    QCOMPARE(loadSpy.count(), 0);
+    QVERIFY(browser->prefix().isEmpty());
+
+    // Inert is only half of it — it also has to look inert. A stylesheet's
+    // `color` does not tint a QIcon, so a button whose icon carries only a
+    // normal-state pixmap keeps its full-strength glyph when disabled and reads
+    // as clickable. The disabled pixmap has to be registered on the icon, and it
+    // has to be lighter, not merely different.
+    const QPixmap normal =
+        up->icon().pixmap(Theme::iconSize, Theme::iconSize, QIcon::Normal);
+    const QPixmap disabled =
+        up->icon().pixmap(Theme::iconSize, Theme::iconSize, QIcon::Disabled);
+    const double normalInk = inkWeight(normal);
+    const double disabledInk = inkWeight(disabled);
+    QVERIFY(normalInk > 0.0);
+    QVERIFY(disabledInk > 0.0);
+    QVERIFY(disabledInk < normalInk);
+
+    // And the same holds for the other two, which start disabled at the top
+    // level just as often as up does.
+    for (QToolButton *button : {backButton(browser), forwardButton(browser)}) {
+        QVERIFY(button);
+        const double on = inkWeight(
+            button->icon().pixmap(Theme::iconSize, Theme::iconSize, QIcon::Normal));
+        const double off = inkWeight(
+            button->icon().pixmap(Theme::iconSize, Theme::iconSize, QIcon::Disabled));
+        QVERIFY(on > 0.0);
+        QVERIFY(off > 0.0);
+        QVERIFY(off < on);
+    }
+
+    delete browser;
+}
 
 void TestObjectBrowser::startsAtTheRootWithNothingToGoBackTo() {
     ObjectBrowser *browser = makeBrowser();

@@ -90,8 +90,9 @@ QToolButton#crumbNav {
     border-radius: 4px;
     padding: 2px;
 }
-QToolButton#crumbNav:hover   { background: #f0f0f0; border-color: #e0e0e0; }
-QToolButton#crumbNav:disabled { color: #b8b8b8; }
+QToolButton#crumbNav:hover:!disabled { background: #f0f0f0; border-color: #e0e0e0; }
+QToolButton#crumbNav:pressed:!disabled { background: #e5e5e5; }
+QToolButton#crumbNav:disabled { background: transparent; border-color: transparent; }
 QToolButton#crumbPart {
     background: transparent;
     border: 1px solid transparent;
@@ -99,7 +100,7 @@ QToolButton#crumbPart {
     padding: 3px 7px;
     color: #1b1b1b;
 }
-QToolButton#crumbPart:hover { background: #f0f0f0; border-color: #e0e0e0; }
+QToolButton#crumbPart:hover:!disabled { background: #f0f0f0; border-color: #e0e0e0; }
 QToolButton#crumbPart[current="true"] { color: #616161; }
 QLabel#crumbSep { color: #b8b8b8; }
 
