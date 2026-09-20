@@ -71,8 +71,6 @@ public:
     /// Keys selected in the table, folders excluded.
     QStringList selectedKeys() const;
 
-    /// The bucket selected in the table, empty unless a bucket row is selected.
-    QString selectedBucket() const;
 
     /// Objects selected in the table.
     QList<ObjectInfo> selectedObjects() const;
@@ -124,6 +122,10 @@ private:
     QWidget *buildDetailsPane();
     void rebuildBreadcrumb();
     void pushHistory(const QString &prefix);
+
+    /// The body of navigateTo(). `push` is false when the prefix came from the
+    /// history rather than from the user choosing it again.
+    void performNavigation(const QString &prefix, bool push);
 
     S3Client *m_client = nullptr;
     ObjectModel *m_model = nullptr;

@@ -107,6 +107,11 @@ void ObjectBrowser::buildUi() {
     bodyLayout->addWidget(buildDetailsPane());
 
     outer->addWidget(body, 1);
+
+    // The nav buttons are created before the breadcrumb host exists, so their
+    // initial enabled state has to be set here: without this they start enabled
+    // and clicking Back at startup does nothing visible.
+    rebuildBreadcrumb();
 }
 
 QWidget *ObjectBrowser::buildBreadcrumb() {
@@ -322,6 +327,10 @@ void ObjectBrowser::pushHistory(const QString &prefix) {
 }
 
 void ObjectBrowser::navigateTo(const QString &prefix) {
+    performNavigation(prefix, true);
+}
+
+void ObjectBrowser::performNavigation(const QString &prefix, bool push) {
     const QString normalised = (prefix == QLatin1String("all")) ? QString() : prefix;
     if (normalised == m_prefix) {
         return;
@@ -329,7 +338,9 @@ void ObjectBrowser::navigateTo(const QString &prefix) {
 
     m_prefix = normalised;
     m_model->setPrefix(m_prefix);
-    pushHistory(m_prefix);
+    if (push) {
+        pushHistory(m_prefix);
+    }
     rebuildBreadcrumb();
     m_search->clear();
     emit loadRequested(m_prefix);
@@ -371,11 +382,10 @@ void ObjectBrowser::goBack() {
         return;
     }
     m_historyIndex -= 1;
-    m_prefix = m_history.at(m_historyIndex);
-    m_model->setPrefix(m_prefix);
-    rebuildBreadcrumb();
-    m_search->clear();
-    emit loadRequested(m_prefix);
+    // Restored from the history the user already walked, so it must not be
+    // pushed again — that would make stepping back and forth grow the trail
+    // instead of moving along it.
+    performNavigation(m_history.at(m_historyIndex), false);
 }
 
 void ObjectBrowser::goForward() {
@@ -383,11 +393,10 @@ void ObjectBrowser::goForward() {
         return;
     }
     m_historyIndex += 1;
-    m_prefix = m_history.at(m_historyIndex);
-    m_model->setPrefix(m_prefix);
-    rebuildBreadcrumb();
-    m_search->clear();
-    emit loadRequested(m_prefix);
+    // Restored from the history the user already walked, so it must not be
+    // pushed again — that would make stepping back and forth grow the trail
+    // instead of moving along it.
+    performNavigation(m_history.at(m_historyIndex), false);
 }
 
 void ObjectBrowser::onTableActivated(const QModelIndex &index) {
@@ -423,13 +432,6 @@ QStringList ObjectBrowser::selectedKeys() const {
     return keys;
 }
 
-QString ObjectBrowser::selectedBucket() const {
-    const QModelIndexList rows = m_table->selectionModel()->selectedRows(ObjectModel::NameColumn);
-    if (rows.isEmpty() || !rows.first().data(ObjectModel::IsBucketRole).toBool()) {
-        return {};
-    }
-    return rows.first().data(ObjectModel::FolderNameRole).toString();
-}
 
 QList<ObjectInfo> ObjectBrowser::selectedObjects() const {
     QList<ObjectInfo> objects;

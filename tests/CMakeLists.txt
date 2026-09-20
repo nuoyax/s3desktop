@@ -34,3 +34,10 @@ target_link_libraries(test_object_model PRIVATE bucketexplorer_ui Qt6::Test)
 target_include_directories(test_object_model PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 set_target_properties(test_object_model PROPERTIES AUTOMOC ON)
 add_test(NAME test_object_model COMMAND test_object_model)
+
+# The browser's navigation: back, forward, up, and the breadcrumb.
+add_executable(test_object_browser test_object_browser.cpp)
+target_link_libraries(test_object_browser PRIVATE bucketexplorer_ui Qt6::Test)
+target_include_directories(test_object_browser PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+set_target_properties(test_object_browser PROPERTIES AUTOMOC ON)
+add_test(NAME test_object_browser COMMAND test_object_browser)

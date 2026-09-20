@@ -71,13 +71,15 @@ ctest --test-dir build --output-on-failure
 （`C:/Qt/6.9.3/mingw_64/bin`）；否则会在运行任何用例之前以
 `0xc0000135` 退出。
 
-五个测试套件，均不需要显示器或网络：
+六个测试套件，均不需要显示器或网络：
 
 - `test_sigv4` —— 签名器，对照 AWS 官方示例与测试套件向量
 - `test_list_parser` —— XML 列表响应解析，含厂商差异与错误码映射
 - `test_target_profile` —— 各厂商的主机名组织与区域推导
 - `test_transfer_queue` —— 传输状态机
-- `test_object_model` —— 过滤、文件夹归组与排序
+- `test_object_model` —— 过滤、文件夹归组、排序，以及桶列表模式
+- `test_object_browser` —— 后退/前进/上级、各层级的面包屑，以及对象命令
+  允许看到哪些行
 
 ## 日志
 

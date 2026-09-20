@@ -247,7 +247,7 @@ void MainWindow::buildActions() {
     m_actSortAsc->setChecked(true);
 
     m_actVersion = new QAction(QStringLiteral("Check for &updates…"), this);
-    m_actAbout = new QAction(QStringLiteral("&About US3"), this);
+    m_actAbout = new QAction(QStringLiteral("&About BucketExplorer"), this);
 
     connect(m_actConnect, &QAction::triggered, this, &MainWindow::onConnectDialog);
     connect(m_actUpload, &QAction::triggered, this, &MainWindow::onUpload);
@@ -998,7 +998,13 @@ void MainWindow::onDelete() {
             // Re-list rather than removing rows locally: a prefix-based listing
             // is what the server considers authoritative, and a partial failure
             // would otherwise leave the table disagreeing with the bucket.
-            reload();
+            // A bucket list is refetched the same way, for the same reason.
+            if (m_model->showingBuckets()) {
+                m_bucketListLoaded = false;
+                showBucketList();
+            } else {
+                reload();
+            }
         });
     }
 }
@@ -1096,10 +1102,24 @@ void MainWindow::onManageBuckets() {
     manager->setAttribute(Qt::WA_DeleteOnClose);
     manager->setConfig(target);
 
-    if (manager->exec() == QDialog::Accepted) {
-        m_config.bucket = manager->chosenBucket();
-        m_client->configure(m_config);
-        applyConfigToUi();
+    if (manager->exec() != QDialog::Accepted) {
+        return;
+    }
+
+    const QString chosen = manager->chosenBucket();
+    if (!chosen.isEmpty()) {
+        // The same path a double-clicked bucket row takes, so the breadcrumb and
+        // the browser's bucket state cannot drift from the config.
+        onBucketActivated(chosen);
+        return;
+    }
+
+    // Accepted with nothing chosen: the user was creating or deleting, and the
+    // list they were looking at is now out of date.
+    if (m_model->showingBuckets()) {
+        m_bucketListLoaded = false;
+        showBucketList();
+    } else {
         reload();
     }
 }
@@ -1196,8 +1216,8 @@ void MainWindow::onCheckVersion() {
 
 void MainWindow::onAbout() {
     QMessageBox::about(
-        this, QStringLiteral("About US3"),
-        QStringLiteral("<h3>US3 %1</h3>"
+        this, QStringLiteral("About BucketExplorer"),
+        QStringLiteral("<h3>BucketExplorer %1</h3>"
                        "<p>A Qt front end for S3-compatible object storage, with UCloud US3 "
                        "and other non-AWS providers as first-class targets.</p>"
                        "<p>Written against the S3 REST API with its own SigV4 signer — no "

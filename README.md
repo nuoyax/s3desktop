@@ -80,14 +80,16 @@ The test binaries link Qt dynamically, so Qt's `bin` directory has to be on
 `PATH` (`C:/Qt/6.9.3/mingw_64/bin`); without it they exit with `0xc0000135`
 before running a single case.
 
-Five suites, none of which need a display or a network:
+Six suites, none of which need a display or a network:
 
 - `test_sigv4` — the signer, against AWS's worked examples and test-suite vectors
 - `test_list_parser` — XML listing responses, including provider quirks and
   error-code mapping
 - `test_target_profile` — hostname layout and region derivation per provider
 - `test_transfer_queue` — the transfer state machine
-- `test_object_model` — filtering, folder grouping, and sorting
+- `test_object_model` — filtering, folder grouping, sorting, and bucket mode
+- `test_object_browser` — back/forward/up, the breadcrumb at every level, and
+  which rows the object commands are allowed to see
 
 ## Logs
 
