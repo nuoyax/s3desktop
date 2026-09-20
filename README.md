@@ -75,6 +75,10 @@ subsystem executable, so it will not attach a console window.
 ctest --test-dir build --output-on-failure
 ```
 
+The test binaries link Qt dynamically, so Qt's `bin` directory has to be on
+`PATH` (`C:/Qt/6.9.3/mingw_64/bin`); without it they exit with `0xc0000135`
+before running a single case.
+
 Five suites, none of which need a display or a network:
 
 - `test_sigv4` — the signer, against AWS's worked examples and test-suite vectors

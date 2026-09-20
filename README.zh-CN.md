@@ -66,6 +66,10 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
+测试程序动态链接 Qt，因此需要把 Qt 的 `bin` 目录加入 `PATH`
+（`C:/Qt/6.9.3/mingw_64/bin`）；否则会在运行任何用例之前以
+`0xc0000135` 退出。
+
 五个测试套件，均不需要显示器或网络：
 
 - `test_sigv4` —— 签名器，对照 AWS 官方示例与测试套件向量
