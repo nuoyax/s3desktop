@@ -18,6 +18,7 @@ hard to fix in the first place.
 |---|---|
 | **Connections** | Named profiles saved locally: endpoint, access key, secret key, bucket, region, prefix, TLS, addressing style. Test-connection button in the dialog. |
 | **Browse** | Bucket list, then a folder-grouped object table with breadcrumb navigation and back/forward/up history (Alt+Left / Alt+Right / Alt+Up). |
+| **Bucket root** | A connection that names no bucket opens on the account's bucket list — its own level, with its own breadcrumb, not a stand-in for a key prefix. Opening a bucket shows its objects and rewrites the path to `Buckets › bucket › folder › …`; the crumb and Alt+Up go back up to the list. |
 | **Search & sort** | Client-side filter over the loaded objects; locale-aware, digit-aware sorting by name, size, or modified time. Folders always sort before files. |
 | **Paginate** | Objects load 500 at a time, continuing from where the last page ended; "Load more" appends instead of replacing, so a 50 000-object bucket stays responsive. |
 | **Details** | Key, size, modified time, ETag, and storage class for the selected row. |

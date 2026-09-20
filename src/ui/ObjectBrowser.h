@@ -44,14 +44,35 @@ public:
     /// walked back into.
     void resetNavigation();
 
+    /// The bucket whose objects are on screen, empty while the bucket list is
+    /// what is on screen. Drives the breadcrumb: a bucket is a level above every
+    /// key prefix, so it has to appear in the path.
+    void setBucketName(const QString &bucket);
+
+    /// Whether this connection can list buckets, and so whether the root crumb
+    /// leads to the bucket list. False for a connection pinned to one bucket,
+    /// where the root is that bucket.
+    void setBucketListAvailable(bool on);
+
+    /// Note that the table is showing the account's buckets rather than objects,
+    /// which changes the column headings and the search hint.
+    void setShowingBuckets(bool on);
+
     bool canGoBack() const { return m_historyIndex > 0; }
     bool canGoForward() const { return m_historyIndex + 1 < m_history.size(); }
+
+    /// Whether there is a level above the current one — which at a bucket's root
+    /// is the bucket list, not a shorter prefix.
+    bool canGoUp() const;
 
     void goBack();
     void goForward();
 
     /// Keys selected in the table, folders excluded.
     QStringList selectedKeys() const;
+
+    /// The bucket selected in the table, empty unless a bucket row is selected.
+    QString selectedBucket() const;
 
     /// Objects selected in the table.
     QList<ObjectInfo> selectedObjects() const;
@@ -83,6 +104,13 @@ signals:
 
     /// An object row was double-clicked.
     void objectActivated(const QString &key);
+
+    /// A bucket row was double-clicked: the user wants to browse into it.
+    void bucketActivated(const QString &bucket);
+
+    /// The user navigated up out of a bucket, or clicked the "Buckets" crumb:
+    /// the window should show the bucket list again.
+    void bucketsRequested();
 
     /// The selection changed; the window uses this to enable/disable commands.
     void selectionChanged();
@@ -117,6 +145,9 @@ private:
     QLabel *m_detailKey = nullptr;
 
     QString m_prefix;
+    QString m_bucket;
+    bool m_bucketListAvailable = false;
+    bool m_showingBuckets = false;
     QStringList m_history;
     int m_historyIndex = -1;
 };

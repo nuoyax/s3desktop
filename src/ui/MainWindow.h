@@ -6,6 +6,8 @@
 #include <QMainWindow>
 #include <QStringList>
 
+#include <functional>
+
 class QAction;
 class QLabel;
 class QProgressBar;
@@ -60,6 +62,13 @@ private slots:
     void onContextMenu(const QPoint &pos);
     void onTransferFinished(int itemId, bool ok);
 
+    /// A bucket row was opened: browse into it.
+    void onBucketActivated(const QString &bucket);
+
+    /// The browser asked for the account's bucket list — the root level of a
+    /// connection that names no bucket.
+    void onBucketsRequested();
+
 private:
     void buildActions();
     void buildMenus();
@@ -69,6 +78,14 @@ private:
 
     /// Start a fresh listing at the current prefix.
     void reload();
+
+    /// Show the account's buckets in the table — the root level of a connection
+    /// that names no bucket, and where navigation from a bucket lands.
+    void showBucketList();
+
+    /// The account's bucket names, from the server. Runs `then` with the list, or
+    /// reports the failure and runs nothing.
+    void fetchBucketNames(const std::function<void(const QStringList &)> &then);
 
     /// Ask for the next page using the last key seen.
     void loadPage(const QString &startAfter);
@@ -137,6 +154,16 @@ private:
     int m_requestId = 0;
     int m_objectCap = 50000;
     QTimer *m_searchDebounce = nullptr;
+
+    /// Whether the bucket list is a level of this connection's navigation. True
+    /// when the connection named no bucket, which is also when the browser's root
+    /// *is* the bucket list.
+    bool m_bucketListEnabled = false;
+
+    /// The list last fetched from the server, kept so going back up to it is
+    /// instant rather than a round trip.
+    QList<BucketInfo> m_bucketList;
+    bool m_bucketListLoaded = false;
 
     /// Files dropped while no connection was open, held so the drop is not lost.
     QStringList m_pendingDrop;

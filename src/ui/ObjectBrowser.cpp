@@ -205,9 +205,12 @@ void ObjectBrowser::rebuildBreadcrumb() {
         delete item;
     }
 
-    // The root is always offered, so there is a way back to the bucket list of
-    // keys even from a deep prefix.
-    auto addCrumb = [&](const QString &label, const QString &target, bool current) {
+    // A bucket sits above every key prefix, so the path is
+    // Buckets › bucket › segment › …. "Buckets" only appears when there is a
+    // list to go back to, which is the same condition as the connection having
+    // named no bucket when it was opened.
+    auto addCrumb = [&](const QString &label, const QString &target, bool current,
+                        bool toRoot = false) {
         if (layout->count() > 0) {
             auto *sep = new QLabel(QStringLiteral("›"));
             sep->setObjectName(QStringLiteral("crumbSep"));
@@ -220,29 +223,90 @@ void ObjectBrowser::rebuildBreadcrumb() {
         button->setProperty("current", current);
         button->setAutoRaise(true);
         button->setCursor(Qt::PointingHandCursor);
-        if (!current) {
+        if (current) {
+            button->setEnabled(false);
+        } else if (toRoot) {
+            // The bucket list is not a prefix and has its own load path, so it
+            // cannot go through navigateTo().
+            connect(button, &QToolButton::clicked, this, &ObjectBrowser::bucketsRequested);
+        } else {
             connect(button, &QToolButton::clicked, this,
                     [this, target]() { navigateTo(target); });
-        } else {
-            button->setEnabled(false);
         }
         layout->addWidget(button);
     };
 
-    addCrumb(QStringLiteral("Root"), QString(), m_prefix.isEmpty());
+    if (m_bucketListAvailable) {
+        addCrumb(QStringLiteral("Buckets"), QString(), m_bucket.isEmpty(), true);
+    }
 
-    const QStringList parts = m_prefix.split(QLatin1Char('/'), Qt::SkipEmptyParts);
-    QString accumulated;
-    for (int i = 0; i < parts.size(); ++i) {
-        accumulated += parts.at(i) + QLatin1Char('/');
-        addCrumb(parts.at(i), accumulated, i == parts.size() - 1);
+    if (!m_bucket.isEmpty()) {
+        // Clicking the bucket name returns to its root, one level above the
+        // prefix on screen.
+        addCrumb(m_bucket, QString(), m_prefix.isEmpty());
+
+        const QStringList parts = m_prefix.split(QLatin1Char('/'), Qt::SkipEmptyParts);
+        QString accumulated;
+        for (int i = 0; i < parts.size(); ++i) {
+            accumulated += parts.at(i) + QLatin1Char('/');
+            addCrumb(parts.at(i), accumulated, i == parts.size() - 1);
+        }
+    } else if (!m_bucketListAvailable) {
+        // No bucket and no way to list them: name the level so the empty bar is
+        // not simply blank.
+        addCrumb(QStringLiteral("No bucket"), QString(), true);
     }
 
     layout->addStretch(1);
 
     m_back->setEnabled(canGoBack());
     m_forward->setEnabled(canGoForward());
-    m_up->setEnabled(!m_prefix.isEmpty());
+    m_up->setEnabled(canGoUp());
+}
+
+bool ObjectBrowser::canGoUp() const {
+    if (m_prefix.isEmpty()) {
+        // At a bucket's root, "up" is the bucket list — but only if this
+        // connection is allowed to ask for one.
+        return m_bucketListAvailable && !m_bucket.isEmpty();
+    }
+    return true;
+}
+
+void ObjectBrowser::setBucketName(const QString &bucket) {
+    if (bucket == m_bucket) {
+        return;
+    }
+    m_bucket = bucket;
+    rebuildBreadcrumb();
+}
+
+void ObjectBrowser::setBucketListAvailable(bool on) {
+    if (on == m_bucketListAvailable) {
+        return;
+    }
+    m_bucketListAvailable = on;
+    rebuildBreadcrumb();
+}
+
+void ObjectBrowser::setShowingBuckets(bool on) {
+    if (on == m_showingBuckets) {
+        return;
+    }
+    m_showingBuckets = on;
+
+    // A bucket has no size, so the column is hidden rather than shown empty.
+    // Collapsing the width as well keeps the remaining columns from leaving a
+    // gap that looks like a rendering fault.
+    if (on) {
+        m_table->horizontalHeader()->hideSection(ObjectModel::SizeColumn);
+    } else {
+        m_table->horizontalHeader()->showSection(ObjectModel::SizeColumn);
+        m_table->setColumnWidth(ObjectModel::SizeColumn, 110);
+    }
+    m_search->setPlaceholderText(on ? QStringLiteral("Search buckets…")
+                                    : QStringLiteral("Search this bucket…"));
+    rebuildBreadcrumb();
 }
 
 void ObjectBrowser::pushHistory(const QString &prefix) {
@@ -272,7 +336,12 @@ void ObjectBrowser::navigateTo(const QString &prefix) {
 }
 
 void ObjectBrowser::navigateUp() {
+    if (!canGoUp()) {
+        return;
+    }
     if (m_prefix.isEmpty()) {
+        // Up from a bucket's root is the bucket list.
+        emit bucketsRequested();
         return;
     }
     QString parent = m_prefix;
@@ -325,6 +394,10 @@ void ObjectBrowser::onTableActivated(const QModelIndex &index) {
     if (!index.isValid()) {
         return;
     }
+    if (index.data(ObjectModel::IsBucketRole).toBool()) {
+        emit bucketActivated(index.data(ObjectModel::FolderNameRole).toString());
+        return;
+    }
     if (index.data(ObjectModel::IsFolderRole).toBool()) {
         const QString prefix = index.data(ObjectModel::KeyRole).toString();
         emit folderActivated(prefix);
@@ -339,12 +412,23 @@ QStringList ObjectBrowser::selectedKeys() const {
     const QModelIndexList rows = m_table->selectionModel()->selectedRows(ObjectModel::NameColumn);
     keys.reserve(rows.size());
     for (const QModelIndex &index : rows) {
-        if (index.data(ObjectModel::IsFolderRole).toBool()) {
-            continue; // a folder is not an object and cannot be downloaded
+        // Neither a folder nor a bucket is an object: neither can be downloaded,
+        // deleted or linked to.
+        if (index.data(ObjectModel::IsFolderRole).toBool() ||
+            index.data(ObjectModel::IsBucketRole).toBool()) {
+            continue;
         }
         keys.append(index.data(ObjectModel::KeyRole).toString());
     }
     return keys;
+}
+
+QString ObjectBrowser::selectedBucket() const {
+    const QModelIndexList rows = m_table->selectionModel()->selectedRows(ObjectModel::NameColumn);
+    if (rows.isEmpty() || !rows.first().data(ObjectModel::IsBucketRole).toBool()) {
+        return {};
+    }
+    return rows.first().data(ObjectModel::FolderNameRole).toString();
 }
 
 QList<ObjectInfo> ObjectBrowser::selectedObjects() const {
@@ -365,6 +449,20 @@ void ObjectBrowser::selectAll() {
 }
 
 void ObjectBrowser::showDetailsFor(const QModelIndex &index) {
+    BucketInfo bucket;
+    if (m_model->bucketAt(index, &bucket)) {
+        m_detailName->setText(bucket.name);
+        m_detailSize->setText(QStringLiteral("bucket"));
+        m_detailModified->setText(bucket.creationDate.isValid()
+                                      ? bucket.creationDate.toString(
+                                            QStringLiteral("yyyy-MM-dd HH:mm:ss"))
+                                      : QStringLiteral("—"));
+        m_detailEtag->setText(QStringLiteral("—"));
+        m_detailClass->setText(QStringLiteral("—"));
+        m_detailKey->setText(QStringLiteral("—"));
+        return;
+    }
+
     ObjectInfo info;
     if (!m_model->objectAt(index, &info)) {
         const QString folder = index.isValid() ? index.data(ObjectModel::FolderNameRole).toString()

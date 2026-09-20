@@ -36,6 +36,8 @@ public:
         EtagRole,
         StorageClassRole,
         RawIndexRole,                ///< index into the underlying object list
+        IsBucketRole,                ///< bool; a row of the account's bucket list
+        CreationDateRole,            ///< QDateTime, for bucket rows
     };
 
     explicit ObjectModel(QObject *parent = nullptr);
@@ -52,6 +54,20 @@ public:
 
     /// Append one page. Used by "load more" so the table grows without flicker.
     void appendObjects(const QList<ObjectInfo> &objects);
+
+    /// Show the account's buckets instead of objects.
+    ///
+    /// This is the root of a connection that names no bucket: there is no bucket
+    /// to list objects from, so the first level has to be the buckets
+    /// themselves. A bucket row navigates into that bucket rather than into a
+    /// key prefix, which is why it is a display mode of this model and not a
+    /// prefix: the two navigate to different destinations.
+    void setBuckets(const QList<BucketInfo> &buckets);
+
+    bool showingBuckets() const { return m_bucketMode; }
+
+    /// The bucket behind a row. Returns false for anything else.
+    bool bucketAt(const QModelIndex &index, BucketInfo *out) const;
 
     /// Drop everything. Also resets the truncation flag.
     void clear();
@@ -98,14 +114,19 @@ public:
     /// One visible line: either a synthesised folder or an object.
     struct Row {
         bool isFolder = false;
-        QString folderName;   ///< last path segment, for folders
-        int objectIndex = -1; ///< index into m_objects, for objects
+        bool isBucket = false;  ///< one of m_buckets rather than m_objects
+        QString folderName;     ///< last path segment, for folders
+        int objectIndex = -1;   ///< index into m_objects, for objects
+        int bucketIndex = -1;   ///< index into m_buckets, for bucket rows
     };
 
 private:
     QList<ObjectInfo> m_objects;
     QList<Row> m_rows;
     QList<Row> m_folders; ///< recomputed only when the prefix or objects change
+
+    QList<BucketInfo> m_buckets;
+    bool m_bucketMode = false;
 
     QString m_prefix;
     QString m_search;

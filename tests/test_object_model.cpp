@@ -33,6 +33,15 @@ private slots:
     void appendGrowsTheListWithoutDuplicating();
     void clearEmptiesEverything();
     void folderRowsCarryAPrefixKey();
+
+    // --- bucket mode ---
+    void bucketRowsListTheAccountBuckets();
+    void bucketRowsSortByNameAndReverse();
+    void bucketRowsSearchByName();
+    void bucketRowsCarryTheirBucketAndNoKey();
+    void bucketRowsHideTheSizeColumnHeading();
+    void bucketRowsAreDroppedByClear();
+    void setObjectsLeavesBucketMode();
 };
 
 namespace {
@@ -61,14 +70,133 @@ QStringList keysOf(const ObjectModel &model) {
     QStringList keys;
     for (int row = 0; row < model.rowCount(); ++row) {
         const QModelIndex index = model.index(row, ObjectModel::NameColumn);
-        if (!index.data(ObjectModel::IsFolderRole).toBool()) {
+        if (!index.data(ObjectModel::IsFolderRole).toBool() &&
+            !index.data(ObjectModel::IsBucketRole).toBool()) {
             keys.append(index.data(ObjectModel::KeyRole).toString());
         }
     }
     return keys;
 }
 
+QList<BucketInfo> sampleBuckets() {
+    const QDateTime base(QDate(2024, 1, 1), QTime(12, 0, 0), QTimeZone::utc());
+    BucketInfo photos;
+    photos.name = QStringLiteral("photos");
+    photos.creationDate = base.addDays(3);
+    BucketInfo archive;
+    archive.name = QStringLiteral("archive");
+    archive.creationDate = base.addDays(1);
+    BucketInfo logs;
+    logs.name = QStringLiteral("logs");
+    logs.creationDate = base.addDays(2);
+    return {photos, archive, logs};
+}
+
 } // namespace
+
+// ---------------------------------------------------------------------------
+// Bucket mode: the root level of a connection that names no bucket.
+// ---------------------------------------------------------------------------
+
+void TestObjectModel::bucketRowsListTheAccountBuckets() {
+    ObjectModel model;
+    model.setBuckets(sampleBuckets());
+
+    QVERIFY(model.showingBuckets());
+    QCOMPARE(model.visibleCount(), 3);
+    // No objects, and so no folder rows either: this is a different list.
+    QCOMPARE(model.objectCount(), 0);
+    QCOMPARE(model.folderCount(), 0);
+}
+
+void TestObjectModel::bucketRowsSortByNameAndReverse() {
+    ObjectModel model;
+    model.setBuckets(sampleBuckets());
+
+    QStringList names;
+    for (int row = 0; row < model.rowCount(); ++row) {
+        names.append(model.index(row, ObjectModel::NameColumn).data(Qt::DisplayRole).toString());
+    }
+    QCOMPARE(names, QStringList({QStringLiteral("archive"), QStringLiteral("logs"),
+                                 QStringLiteral("photos")}));
+
+    model.sort(ObjectModel::NameColumn, Qt::DescendingOrder);
+
+    names.clear();
+    for (int row = 0; row < model.rowCount(); ++row) {
+        names.append(model.index(row, ObjectModel::NameColumn).data(Qt::DisplayRole).toString());
+    }
+    QCOMPARE(names, QStringList({QStringLiteral("photos"), QStringLiteral("logs"),
+                                 QStringLiteral("archive")}));
+}
+
+void TestObjectModel::bucketRowsSearchByName() {
+    ObjectModel model;
+    model.setBuckets(sampleBuckets());
+    model.setSearchText(QStringLiteral("OG"));
+
+    QCOMPARE(model.visibleCount(), 1);
+    QCOMPARE(model.index(0, ObjectModel::NameColumn).data(ObjectModel::FolderNameRole).toString(),
+             QStringLiteral("logs"));
+}
+
+void TestObjectModel::bucketRowsCarryTheirBucketAndNoKey() {
+    ObjectModel model;
+    model.setBuckets(sampleBuckets());
+
+    const QModelIndex index = model.index(0, ObjectModel::NameColumn);
+    QVERIFY(index.data(ObjectModel::IsBucketRole).toBool());
+    QVERIFY(!index.data(ObjectModel::IsFolderRole).toBool());
+
+    BucketInfo bucket;
+    QVERIFY(model.bucketAt(index, &bucket));
+    QCOMPARE(bucket.name, QStringLiteral("archive"));
+
+    ObjectInfo object;
+    QVERIFY(!model.objectAt(index, &object));
+
+    // A bucket is not a prefix: a selected bucket must not look like the
+    // selected object "archive/".
+    QVERIFY(index.data(ObjectModel::KeyRole).toString().isEmpty());
+}
+
+void TestObjectModel::bucketRowsHideTheSizeColumnHeading() {
+    ObjectModel model;
+    model.setBuckets(sampleBuckets());
+
+    QCOMPARE(model.headerData(ObjectModel::NameColumn, Qt::Horizontal, Qt::DisplayRole).toString(),
+             QStringLiteral("Bucket"));
+    QVERIFY(model.headerData(ObjectModel::SizeColumn, Qt::Horizontal, Qt::DisplayRole)
+                .toString()
+                .isEmpty());
+    QCOMPARE(
+        model.headerData(ObjectModel::ModifiedColumn, Qt::Horizontal, Qt::DisplayRole).toString(),
+        QStringLiteral("Created"));
+}
+
+void TestObjectModel::bucketRowsAreDroppedByClear() {
+    ObjectModel model;
+    model.setBuckets(sampleBuckets());
+    QCOMPARE(model.visibleCount(), 3);
+
+    model.clear();
+
+    QVERIFY(!model.showingBuckets());
+    QCOMPARE(model.visibleCount(), 0);
+    QCOMPARE(model.objectCount(), 0);
+}
+
+void TestObjectModel::setObjectsLeavesBucketMode() {
+    ObjectModel model;
+    model.setBuckets(sampleBuckets());
+    QVERIFY(model.showingBuckets());
+
+    model.clear();
+    model.setObjects(sampleObjects());
+
+    QVERIFY(!model.showingBuckets());
+    QCOMPARE(model.objectCount(), 5);
+}
 
 void TestObjectModel::showsEveryObjectWithNoPrefixOrSearch() {
     ObjectModel model;

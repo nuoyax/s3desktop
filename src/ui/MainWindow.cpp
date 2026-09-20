@@ -25,8 +25,8 @@
 #include <QFileInfo>
 #include <QFrame>
 #include <QHBoxLayout>
-#include <QInputDialog>
 #include <QLabel>
+#include <QLineEdit>
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
@@ -107,6 +107,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     // Double-clicking an object starts a download, which is what the original
     // did on Enter and what most file managers do on a double-click.
     connect(m_browser, &ObjectBrowser::objectActivated, this, &MainWindow::onDownload);
+    connect(m_browser, &ObjectBrowser::bucketActivated, this, &MainWindow::onBucketActivated);
+    connect(m_browser, &ObjectBrowser::bucketsRequested, this, &MainWindow::onBucketsRequested);
     connect(m_browser->view(), &QTableView::customContextMenuRequested, this,
             &MainWindow::onContextMenu);
     connect(m_browser->view()->selectionModel(), &QItemSelectionModel::currentChanged, this,
@@ -457,58 +459,147 @@ void MainWindow::connectWith(const S3Config &config) {
     m_truncated = false;
     m_lastKey.clear();
     m_loading = false;
+    m_bucketListLoaded = false;
+    m_bucketList.clear();
+    m_bucketListEnabled = config.bucket.isEmpty();
 
     m_browser->resetNavigation();
-    m_model->clear();
+    m_browser->setBucketListAvailable(m_bucketListEnabled);
 
-    applyConfigToUi();
-    updateCommandStates();
-
-    const QString problem = config.validate();
+    const QString problem = m_config.validate();
     if (!problem.isEmpty()) {
+        m_model->clear();
+        m_browser->setBucketName(m_config.bucket);
+        applyConfigToUi();
+        updateCommandStates();
         setStatusMessage(problem, true);
         return;
     }
 
-    // With no bucket chosen, show what the account can see by listing buckets
-    // and letting the user pick — the same entry point the original offered,
-    // but inline rather than in a separate window.
-    if (config.bucket.isEmpty()) {
-        setStatusMessage(QStringLiteral("No bucket selected — listing buckets…"));
-        m_client->listBuckets([this](const Result<QList<BucketInfo>> &result) {
-            if (!result.ok()) {
-                setStatusMessage(result.error.message(), true);
-                return;
-            }
-            if (result.value.isEmpty()) {
-                setStatusMessage(QStringLiteral("This account has no buckets."), true);
-                return;
-            }
+    m_browser->setBucketName(m_config.bucket);
 
-            QStringList names;
-            for (const BucketInfo &bucket : result.value) {
-                names.append(bucket.name);
-            }
-
-            bool accepted = false;
-            const QString choice = QInputDialog::getItem(
-                this, QStringLiteral("Choose a bucket"),
-                QStringLiteral("This connection does not name a bucket. Pick one:"), names, 0,
-                false, &accepted);
-
-            if (accepted && !choice.isEmpty()) {
-                m_config.bucket = choice;
-                m_client->configure(m_config);
-                applyConfigToUi();
-                reload();
-            } else {
-                setStatusMessage(QStringLiteral("No bucket selected."));
-            }
-        });
+    if (m_bucketListEnabled) {
+        // The connection names no bucket, so the root of the browser is the
+        // account's bucket list. Opening a bucket from there is what puts an
+        // object listing on screen.
+        showBucketList();
         return;
     }
 
+    m_model->clear();
+    applyConfigToUi();
+    updateCommandStates();
     reload();
+}
+
+void MainWindow::fetchBucketNames(const std::function<void(const QStringList &)> &then) {
+    setBusy(true);
+    setStatusMessage(QStringLiteral("Listing buckets…"));
+    m_client->listBuckets([this, then](const Result<QList<BucketInfo>> &result) {
+        setBusy(false);
+        if (!result.ok()) {
+            setStatusMessage(result.error.message(), true);
+            return;
+        }
+        QStringList names;
+        names.reserve(result.value.size());
+        for (const BucketInfo &bucket : result.value) {
+            names.append(bucket.name);
+        }
+        then(names);
+    });
+}
+
+void MainWindow::showBucketList() {
+    if (m_config.bucket.isEmpty() && m_config.endpoint.isEmpty()) {
+        return;
+    }
+
+    const QString problem = m_config.validate();
+    if (!problem.isEmpty()) {
+        setStatusMessage(problem, true);
+        return;
+    }
+    if (m_config.bucket.isEmpty() && m_bucketListLoaded) {
+        // Already fetched: show it again without a round trip, which is what
+        // navigating back up from a bucket should feel like.
+        m_browser->resetNavigation();
+        m_browser->setShowingBuckets(true);
+        m_model->setBuckets(m_bucketList);
+        applyConfigToUi();
+        updateCommandStates();
+        refreshStatusCounts();
+        setStatusMessage(QStringLiteral("%1 bucket(s).").arg(m_bucketList.size()));
+        return;
+    }
+
+    setBusy(true);
+    setStatusMessage(QStringLiteral("Listing buckets…"));
+    m_client->listBuckets([this](const Result<QList<BucketInfo>> &result) {
+        setBusy(false);
+        if (!result.ok()) {
+            setStatusMessage(result.error.message(), true);
+            return;
+        }
+
+        m_bucketList = result.value;
+        m_bucketListLoaded = true;
+
+        // The browser is at its root; nothing below it yet. Reset before filling
+        // the table so the clear cannot wipe what was just fetched.
+        m_browser->resetNavigation();
+        m_browser->setBucketName(QString());
+        m_browser->setShowingBuckets(true);
+        m_model->setBuckets(m_bucketList);
+
+        applyConfigToUi();
+        updateCommandStates();
+        refreshStatusCounts();
+
+        if (m_bucketList.isEmpty()) {
+            setStatusMessage(QStringLiteral("This account has no buckets."), true);
+        } else {
+            setStatusMessage(QStringLiteral("%1 bucket(s). Open one to browse its objects.")
+                                 .arg(m_bucketList.size()));
+        }
+    });
+}
+
+void MainWindow::onBucketActivated(const QString &bucket) {
+    if (bucket.isEmpty()) {
+        return;
+    }
+
+    m_config.bucket = bucket;
+    m_config.prefix.clear();
+    m_client->configure(m_config);
+
+    m_browser->setShowingBuckets(false);
+    m_browser->setBucketName(bucket);
+    m_browser->setBucketListAvailable(true);
+    m_browser->resetNavigation();
+
+    applyConfigToUi();
+    updateCommandStates();
+    reload();
+}
+
+void MainWindow::onBucketsRequested() {
+    if (!m_bucketListEnabled) {
+        return;
+    }
+
+    // Leaving a bucket is a change of connection for the object commands: there
+    // is nothing to upload into until a bucket is open again.
+    m_config.bucket.clear();
+    m_config.prefix.clear();
+    m_client->configure(m_config);
+
+    m_browser->setShowingBuckets(true);
+    m_browser->setBucketName(QString());
+    m_browser->resetNavigation();
+
+    showBucketList();
 }
 
 void MainWindow::applyConfigToUi() {
@@ -545,7 +636,11 @@ void MainWindow::updateWindowTitle() {
     if (!m_config.name.isEmpty()) {
         title += QStringLiteral(" — ") + m_config.name;
     }
-    if (!m_config.bucket.isEmpty()) {
+    if (m_config.bucket.isEmpty()) {
+        // No bucket: the window title names the level the browser is actually
+        // showing, so it does not claim to be somewhere the user is not.
+        title += QStringLiteral(" / (buckets)");
+    } else {
         title += QStringLiteral(" / ") + m_config.bucket;
         if (!m_browser->prefix().isEmpty()) {
             title += QStringLiteral("/") + m_browser->prefix();
@@ -559,16 +654,29 @@ void MainWindow::updateWindowTitle() {
 // ---------------------------------------------------------------------------
 
 void MainWindow::onLoadRequested(const QString &prefix) {
+    if (m_config.bucket.isEmpty()) {
+        // A prefix is meaningless without a bucket: there is nothing to prefix
+        // into. The only level there is, is the bucket list.
+        showBucketList();
+        return;
+    }
     m_config.prefix = prefix;
     updateWindowTitle();
     reload();
 }
 
 void MainWindow::reload() {
+    if (m_config.bucket.isEmpty()) {
+        // Nothing to list objects from; the root level is the bucket list.
+        showBucketList();
+        return;
+    }
+
     if (m_loading) {
         m_client->cancel(m_requestId);
     }
 
+    m_browser->setShowingBuckets(false);
     m_model->clear();
     m_truncated = false;
     m_lastKey.clear();
@@ -577,6 +685,11 @@ void MainWindow::reload() {
 
 void MainWindow::onRefresh() {
     if (m_config.bucket.isEmpty()) {
+        if (m_bucketListEnabled) {
+            m_bucketListLoaded = false;
+            showBucketList();
+            return;
+        }
         setStatusMessage(QStringLiteral("Choose a connection and bucket first."), true);
         return;
     }
@@ -585,7 +698,7 @@ void MainWindow::onRefresh() {
 
 void MainWindow::loadPage(const QString &startAfter) {
     if (m_config.bucket.isEmpty()) {
-        setStatusMessage(QStringLiteral("No bucket selected."), true);
+        showBucketList();
         return;
     }
 
@@ -662,6 +775,16 @@ void MainWindow::onLoadMore() {
 
 void MainWindow::refreshStatusCounts() {
     const int visible = m_model->visibleCount();
+
+    if (m_model->showingBuckets()) {
+        QString counts = QStringLiteral("%1 bucket%2").arg(visible).arg(visible == 1 ? "" : "s");
+        if (!m_truncated && visible < m_bucketList.size()) {
+            counts += QStringLiteral(" of %1").arg(m_bucketList.size());
+        }
+        m_statusCounts->setText(counts);
+        return;
+    }
+
     const int total = m_model->objectCount();
     const int folders = m_model->folderCount();
     const int selected = m_browser->selectedKeys().size();
@@ -706,7 +829,10 @@ void MainWindow::setStatusMessage(const QString &text, bool isError) {
 }
 
 void MainWindow::updateCommandStates() {
+    // An object command needs a bucket to act in; the bucket list has no bucket,
+    // so upload/delete/link are correctly disabled there.
     const bool connected = !m_config.bucket.isEmpty() && m_config.validate().isEmpty();
+    const bool listingBuckets = m_model->showingBuckets();
     const int selected = m_browser->selectedKeys().size();
 
     m_actUpload->setEnabled(connected);
@@ -714,10 +840,10 @@ void MainWindow::updateCommandStates() {
     m_actDelete->setEnabled(connected && selected > 0);
     m_actLink->setEnabled(connected && selected > 0);
     m_actCopyKeys->setEnabled(selected > 0);
-    m_actRefresh->setEnabled(connected);
+    m_actRefresh->setEnabled(connected || (listingBuckets && m_bucketListEnabled));
     m_actLoadMore->setEnabled(connected && m_truncated && !m_loading);
     m_actStop->setEnabled(m_loading);
-    m_actSelectAll->setEnabled(connected && m_model->visibleCount() > 0);
+    m_actSelectAll->setEnabled(m_model->visibleCount() > 0);
     m_actBuckets->setEnabled(!m_config.endpoint.isEmpty());
 }
 
@@ -733,6 +859,13 @@ void MainWindow::onSearchChanged(const QString &text) {
     // reads it back. Doing it this way keeps the timer's single owner obvious.
     m_browser->view()->setProperty("pendingSearch", text);
     m_searchDebounce->start();
+
+    if (m_model->showingBuckets()) {
+        // Bucket rows are local, so a search over them is complete rather than
+        // partial, and saying so would be noise.
+        setStatusMessage(text.isEmpty() ? QString() : QString());
+        return;
+    }
 
     // Searching only covers objects already in memory, since a client-side
     // filter cannot reach keys that were never listed. Saying so is better than
@@ -903,7 +1036,19 @@ void MainWindow::onCopyKeys() {
 
 void MainWindow::onContextMenu(const QPoint &pos) {
     const QModelIndex index = m_browser->view()->indexAt(pos);
+    const bool isBucket = index.isValid() && index.data(ObjectModel::IsBucketRole).toBool();
     const bool isFolder = index.isValid() && index.data(ObjectModel::IsFolderRole).toBool();
+
+    if (isBucket) {
+        const QString bucket = index.data(ObjectModel::FolderNameRole).toString();
+        QMenu menu(this);
+        menu.addAction(Theme::icon(Theme::Glyph::Bucket), QStringLiteral("Open"),
+                       this, [this, bucket]() { onBucketActivated(bucket); });
+        menu.addAction(Theme::icon(Theme::Glyph::Copy), QStringLiteral("Copy bucket name"),
+                       this, [bucket]() { QApplication::clipboard()->setText(bucket); });
+        menu.exec(m_browser->view()->viewport()->mapToGlobal(pos));
+        return;
+    }
 
     QMenu menu(this);
     if (isFolder) {
@@ -1102,9 +1247,9 @@ void MainWindow::dropEvent(QDropEvent *event) {
     // and say what is needed rather than discarding the gesture.
     if (m_config.bucket.isEmpty() || !m_config.validate().isEmpty()) {
         m_pendingDrop = paths;
-        setStatusMessage(QStringLiteral("%1 file(s) held — open a connection to upload them.")
-                             .arg(paths.size()),
-                         true);
+        setStatusMessage(
+            QStringLiteral("%1 file(s) held — open a bucket to upload them.").arg(paths.size()),
+            true);
         return;
     }
 

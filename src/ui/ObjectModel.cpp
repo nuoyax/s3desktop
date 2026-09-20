@@ -36,6 +36,48 @@ QVariant ObjectModel::data(const QModelIndex &index, int role) const {
 
     const Row &row = m_rows.at(index.row());
 
+    if (row.isBucket) {
+        const BucketInfo &bucket = m_buckets.at(row.bucketIndex);
+        switch (role) {
+        case Qt::DisplayRole:
+            if (index.column() == NameColumn) {
+                return bucket.name;
+            }
+            // The creation date goes in the Modified column: it is the only
+            // timestamp a bucket has, and leaving the column blank would look
+            // like missing data rather than data that does not exist.
+            return index.column() == ModifiedColumn && bucket.creationDate.isValid()
+                       ? Theme::formatWhen(bucket.creationDate)
+                       : QVariant();
+        case Qt::DecorationRole:
+            return index.column() == NameColumn ? Theme::icon(Theme::Glyph::Bucket) : QVariant();
+        case Qt::ToolTipRole:
+            return QStringLiteral("Bucket: %1").arg(bucket.name);
+        case IsBucketRole:
+            return true;
+        case IsFolderRole:
+            return false;
+        case KeyRole:
+            // A bucket is not a key prefix: selecting it must not look like
+            // selecting the object "name/".
+            return QString();
+        case FolderNameRole:
+            return bucket.name;
+        case RawIndexRole:
+        case SizeRole:
+            return QVariant();
+        case DateRole:
+            return bucket.creationDate;
+        case EtagRole:
+        case StorageClassRole:
+            return QString();
+        case Qt::TextAlignmentRole:
+            return QVariant(int(Qt::AlignLeft | Qt::AlignVCenter));
+        default:
+            return {};
+        }
+    }
+
     if (row.isFolder) {
         switch (role) {
         case Qt::DisplayRole:
@@ -121,6 +163,18 @@ QVariant ObjectModel::headerData(int section, Qt::Orientation orientation, int r
     }
 
     if (role == Qt::DisplayRole) {
+        if (m_bucketMode) {
+            switch (section) {
+            case NameColumn:
+                return QStringLiteral("Bucket");
+            case SizeColumn:
+                return {}; // a bucket has no size, and a blank column says so
+            case ModifiedColumn:
+                return QStringLiteral("Created");
+            default:
+                return {};
+            }
+        }
         switch (section) {
         case NameColumn:
             return QStringLiteral("Name");
@@ -162,13 +216,36 @@ bool ObjectModel::objectAt(const QModelIndex &index, ObjectInfo *out) const {
         return false;
     }
     const Row &row = m_rows.at(index.row());
-    if (row.isFolder || row.objectIndex < 0 || row.objectIndex >= m_objects.size()) {
+    if (row.isFolder || row.isBucket || row.objectIndex < 0 ||
+        row.objectIndex >= m_objects.size()) {
         return false;
     }
     if (out) {
         *out = m_objects.at(row.objectIndex);
     }
     return true;
+}
+
+bool ObjectModel::bucketAt(const QModelIndex &index, BucketInfo *out) const {
+    if (!index.isValid() || index.row() >= m_rows.size()) {
+        return false;
+    }
+    const Row &row = m_rows.at(index.row());
+    if (!row.isBucket || row.bucketIndex < 0 || row.bucketIndex >= m_buckets.size()) {
+        return false;
+    }
+    if (out) {
+        *out = m_buckets.at(row.bucketIndex);
+    }
+    return true;
+}
+
+void ObjectModel::setBuckets(const QList<BucketInfo> &buckets) {
+    beginResetModel();
+    m_bucketMode = true;
+    m_buckets = buckets;
+    rebuild();
+    endResetModel();
 }
 
 QList<ObjectInfo> ObjectModel::visibleObjects() const {
@@ -207,6 +284,8 @@ void ObjectModel::appendObjects(const QList<ObjectInfo> &objects) {
 
 void ObjectModel::clear() {
     beginResetModel();
+    m_bucketMode = false;
+    m_buckets.clear();
     m_objects.clear();
     m_rows.clear();
     m_folders.clear();
@@ -299,6 +378,41 @@ void ObjectModel::rebuild() {
     rebuildFolders();
 
     m_rows.clear();
+
+    // Bucket mode is a different list, not a different prefix: there is no
+    // prefix, no folder grouping and nothing to sort by size or date, so the
+    // object path below is skipped entirely rather than run over an empty list.
+    if (m_bucketMode) {
+        QCollator collator(QLocale::system());
+        collator.setNumericMode(true);
+        collator.setCaseSensitivity(Qt::CaseInsensitive);
+
+        QList<int> order;
+        order.reserve(m_buckets.size());
+        for (int i = 0; i < m_buckets.size(); ++i) {
+            order.append(i);
+        }
+        if (m_search.isEmpty()) {
+            std::stable_sort(order.begin(), order.end(), [&](int lhs, int rhs) {
+                const int cmp = collator.compare(m_buckets.at(lhs).name, m_buckets.at(rhs).name);
+                return m_order == Qt::AscendingOrder ? cmp < 0 : cmp > 0;
+            });
+        }
+
+        m_rows.reserve(order.size());
+        for (int index : order) {
+            const BucketInfo &bucket = m_buckets.at(index);
+            if (!m_search.isEmpty() && !bucket.name.contains(m_search, Qt::CaseInsensitive)) {
+                continue;
+            }
+            Row row;
+            row.isBucket = true;
+            row.bucketIndex = index;
+            m_rows.append(row);
+        }
+        return;
+    }
+
     m_rows.reserve(m_folders.size() + m_objects.size());
 
     if (m_foldersEnabled && m_search.isEmpty()) {
