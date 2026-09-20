@@ -3,6 +3,7 @@
 #include "compat/TargetProfile.h"
 #include "core/ConnectionStore.h"
 #include "core/CredentialStore.h"
+#include "core/Log.h"
 #include "core/S3Client.h"
 #include "ui/Theme.h"
 
@@ -80,7 +81,12 @@ void ConnectDialog::buildUi() {
 
     // Any edit marks the form dirty so the user is warned before losing it.
     connect(m_name, &QLineEdit::textEdited, this, &ConnectDialog::onFormEdited);
-    connect(m_endpoint, &QLineEdit::textEdited, this, &ConnectDialog::onFormEdited);
+    connect(m_endpoint, &QLineEdit::textEdited, this, [this]() {
+        // Mirror a scheme typed into the endpoint into the Transport combo before
+        // anything else reacts to the edit. See syncTransportToEndpointScheme.
+        syncTransportToEndpointScheme();
+        onFormEdited();
+    });
     connect(m_accessKey, &QLineEdit::textEdited, this, &ConnectDialog::onFormEdited);
     connect(m_secretKey, &QLineEdit::textEdited, this, &ConnectDialog::onFormEdited);
     connect(m_bucket, &QLineEdit::textEdited, this, &ConnectDialog::onFormEdited);
@@ -151,7 +157,8 @@ QWidget *ConnectDialog::buildFormPane() {
     form->addRow(QStringLiteral("Provider"), m_target);
 
     m_endpoint = new QLineEdit;
-    m_endpoint->setPlaceholderText(QStringLiteral("s3.example.com or 10.0.0.5:9000"));
+    m_endpoint->setPlaceholderText(QStringLiteral("s3.example.com, 10.0.0.5:9000, or "
+                                                  "http://10.0.0.5:9000"));
     form->addRow(QStringLiteral("Endpoint"), m_endpoint);
 
     m_endpointHint = new QLabel;
@@ -214,7 +221,9 @@ QWidget *ConnectDialog::buildFormPane() {
     form->addRow(QStringLiteral("Addressing"), m_addressing);
 
     auto *note = new QLabel(QStringLiteral(
-        "Secrets are encrypted with %1 and kept out of settings.json.")
+        "Secrets are encrypted with %1 and kept out of settings.json.\n"
+        "A scheme in the endpoint (http:// or https://) overrides the Transport "
+        "setting.")
                                 .arg(m_store->credentials()->backendName()));
     note->setObjectName(QStringLiteral("hint"));
     note->setWordWrap(true);
@@ -317,7 +326,10 @@ S3Config ConnectDialog::readForm() const {
     cfg.targetId = m_target->currentData().toString();
     cfg.addressingStyle = m_addressing->currentData().toInt();
     cfg.tls = static_cast<TlsPolicy>(m_tls->currentData().toInt());
-    cfg.useSsl = cfg.tls != TlsPolicy::Disabled;
+    // The combo is the authority for new saves; useSsl is kept consistent so the
+    // file still loads correctly in the original app, which only understands
+    // that field.
+    cfg.useSsl = cfg.effectiveUseSsl();
     return cfg;
 }
 
@@ -327,6 +339,34 @@ void ConnectDialog::onFormEdited() {
     }
     m_dirty = true;
     setStatus(QString(), false);
+}
+
+void ConnectDialog::syncTransportToEndpointScheme() {
+    // A scheme typed into the endpoint field and the Transport combo are two ways
+    // of stating the same thing. Letting them disagree produces an https request
+    // to a plain-HTTP service, whose failure (a TLS handshake error) names
+    // neither field. The typed scheme is the more recent statement, so the combo
+    // follows it.
+    const QString text = m_endpoint->text().trimmed().toLower();
+    const int marker = text.indexOf(QStringLiteral("://"));
+    if (marker <= 0) {
+        return;
+    }
+
+    const QString scheme = text.left(marker);
+    if (scheme != QStringLiteral("http") && scheme != QStringLiteral("https")) {
+        return;
+    }
+
+    const TlsPolicy wanted = scheme == QStringLiteral("https")
+                                 ? TlsPolicy::VerifyStrict
+                                 : TlsPolicy::Disabled;
+    const int index = m_tls->findData(int(wanted));
+    if (index >= 0 && m_tls->currentIndex() != index) {
+        // Not a user edit of the combo, so this must not re-enter onFormEdited.
+        const QSignalBlocker blocker(m_tls);
+        m_tls->setCurrentIndex(index);
+    }
 }
 
 void ConnectDialog::setStatus(const QString &text, bool isError) {
@@ -452,6 +492,22 @@ void ConnectDialog::onTest() {
 
     setStatus(QStringLiteral("Testing %1…").arg(cfg.endpoint), false);
     m_testButton->setEnabled(false);
+
+    // Log the form as submitted, not as saved: a test that fails because a field
+    // was mistyped is the common case, and comparing the two is the whole point.
+    Log::write(Log::ui(), 0,
+               QStringLiteral("test connection: endpoint=\"%1\" host=%2 port=%3 bucket=\"%4\" "
+                              "region=\"%5\" profile=%6 addressing=%7 tls=%8 access-key=%9 "
+                              "secret=%10")
+                   .arg(cfg.endpoint, cfg.host(),
+                        cfg.port().isEmpty() ? QStringLiteral("(default)") : cfg.port(), cfg.bucket,
+                        cfg.region,
+                        cfg.targetId.isEmpty() ? QStringLiteral("generic") : cfg.targetId,
+                        cfg.addressingStyle == int(AddressingStyle::VirtualHost)
+                            ? QStringLiteral("virtual-host")
+                            : QStringLiteral("path-style"),
+                        cfg.effectiveUseSsl() ? QStringLiteral("https") : QStringLiteral("http"),
+                        Log::redact(cfg.accessKey), Log::redact(cfg.secretKey)));
 
     // A private client rather than the window's shared one: the modal dialog
     // spins its own event loop, and mixing these requests into the main

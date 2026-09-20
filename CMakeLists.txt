@@ -24,6 +24,8 @@ find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network)
 # Kept separate from the GUI so tests can link it without a display.
 # ---------------------------------------------------------------------------
 add_library(us3qt_core STATIC
+    src/core/Log.cpp
+    src/core/Log.h
     src/core/SigV4.cpp
     src/core/SigV4.h
     src/core/S3Types.h

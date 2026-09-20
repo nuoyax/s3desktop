@@ -143,8 +143,19 @@ private:
     QString bucketPath(const QString &bucket) const;
     QString servicePath() const;
 
-    /// Host header value, which carries the bucket in virtual-host mode.
+    /// Host header value: the endpoint host, plus the bucket in virtual-host
+    /// mode, plus a non-default port. Also the authority of every URL, so the
+    /// Host header and the URL can never disagree.
     QString requestHost(const QString &bucketForVirtualHost = {}) const;
+
+    /// The full URL for `path`, with the scheme and the host above. Built in one
+    /// place: the first version assembled URLs at four call sites and one of them
+    /// did not go through host() at all.
+    QString requestUrl(const QString &path, const QByteArray &query) const;
+
+    /// Whether `port` is the default for the configured scheme, and so should be
+    /// left out of the Host header.
+    bool isDefaultPort(const QString &port) const;
 
     /// Attach the signing headers to an outgoing request.
     void signRequest(QNetworkRequest &req,
@@ -157,6 +168,11 @@ private:
     /// Read the body and hand back either the payload or a mapped error.
     void finish(QNetworkReply *reply, int requestId,
                 const std::function<void(const QByteArray &body, const S3Error &error)> &cb);
+
+    /// One line per completed request, plus the response body when it failed.
+    /// A no-op when logging is off, before any string is built.
+    void logResult(const char *outcome, const QString &url, int status,
+                   const QByteArray &body, const S3Error &error) const;
 
     QNetworkAccessManager *m_nam;
     S3Config m_cfg;

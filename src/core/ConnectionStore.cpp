@@ -1,6 +1,7 @@
 #include "core/ConnectionStore.h"
 
 #include "core/CredentialStore.h"
+#include "core/Log.h"
 
 #include <QCommandLineParser>
 #include <QDir>
@@ -115,6 +116,15 @@ bool ConnectionStore::load(QString *warning) {
             }
         } else if (c.secretKey.isEmpty()) {
             c.secretKey = m_credentials->get(c.name);
+            if (c.secretKey.isEmpty()) {
+                // Not fatal here — the user may simply not have saved one yet —
+                // but it is the answer to "why can't I connect" often enough to
+                // be worth a line naming the connection.
+                Log::write(Log::core(), 1,
+                           QStringLiteral("connection \"%1\" has no usable secret key; its "
+                                          "requests will fail with a signature error")
+                               .arg(c.name));
+            }
         }
 
         m_connections.append(c);

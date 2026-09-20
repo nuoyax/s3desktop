@@ -62,6 +62,10 @@ private:
     void updateButtons();
     bool commitForm(QString *error);
 
+    /// Point the Transport combo at whatever scheme the endpoint field declares,
+    /// so the two cannot disagree about the transport.
+    void syncTransportToEndpointScheme();
+
     ConnectionStore *m_store = nullptr;
     S3Client *m_client = nullptr;
 

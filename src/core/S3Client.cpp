@@ -1,6 +1,7 @@
 #include "core/S3Client.h"
 
 #include "compat/TargetProfile.h"
+#include "core/Log.h"
 #include "core/SigV4.h"
 
 #include <QDateTime>
@@ -67,6 +68,17 @@ S3Client::~S3Client() = default;
 void S3Client::configure(const S3Config &cfg) {
     m_cfg = cfg;
     m_nam->setProxy(QNetworkProxy(QNetworkProxy::DefaultProxy));
+    if (Log::enabled()) {
+        Log::write(Log::core(), 0,
+                   QStringLiteral("configured name=\"%1\" endpoint=\"%2\" host=%3 port=%4 "
+                                  "bucket=\"%5\" region=\"%6\" profile=%7 tls=%8")
+                       .arg(m_cfg.name, m_cfg.endpoint, m_cfg.host(),
+                            m_cfg.port().isEmpty() ? QStringLiteral("(default)") : m_cfg.port(),
+                            m_cfg.bucket, m_cfg.region,
+                            m_cfg.targetId.isEmpty() ? QStringLiteral("generic") : m_cfg.targetId,
+                            m_cfg.effectiveUseSsl() ? QStringLiteral("https")
+                                                    : QStringLiteral("http")));
+    }
 }
 
 QString S3Client::effectiveRegion() const {
@@ -97,11 +109,37 @@ QString S3Client::servicePath() const {
 }
 
 QString S3Client::requestHost(const QString &bucketForVirtualHost) const {
+    // host(), not endpoint: endpoint may still carry a scheme, and concatenating
+    // that into a URL produces "https://http://host:3900/" — which QUrl accepts,
+    // parses with host "http", and then fails to resolve.
+    QString host = m_cfg.host();
     if (!bucketForVirtualHost.isEmpty() &&
         m_cfg.addressingStyle == static_cast<int>(AddressingStyle::VirtualHost)) {
-        return bucketForVirtualHost + QStringLiteral(".") + m_cfg.endpoint.trimmed();
+        host = bucketForVirtualHost + QStringLiteral(".") + host;
     }
-    return m_cfg.endpoint.trimmed();
+
+    // The port belongs in the Host header whenever it is not the scheme default.
+    // This value is both the signed Host header and the authority of the URL, so
+    // they cannot disagree: signing a bare host while sending "Host: host:3900"
+    // is a signature mismatch that no provider explains any better than
+    // "SignatureDoesNotMatch".
+    if (const QString port = m_cfg.port(); !port.isEmpty() && !isDefaultPort(port)) {
+        host += QStringLiteral(":") + port;
+    }
+    return host;
+}
+
+QString S3Client::requestUrl(const QString &path, const QByteArray &query) const {
+    QString url = (m_cfg.effectiveUseSsl() ? QStringLiteral("https://") : QStringLiteral("http://")) +
+                  requestHost(m_cfg.bucket) + path;
+    if (!query.isEmpty()) {
+        url += QStringLiteral("?") + QString::fromUtf8(query);
+    }
+    return url;
+}
+
+bool S3Client::isDefaultPort(const QString &port) const {
+    return m_cfg.effectiveUseSsl() ? port == QLatin1String("443") : port == QLatin1String("80");
 }
 
 QNetworkReply *S3Client::send(const QByteArray &method,
@@ -111,12 +149,7 @@ QNetworkReply *S3Client::send(const QByteArray &method,
                               const QByteArray &contentType,
                               bool hashPayload) {
     const QString host = requestHost(m_cfg.bucket);
-
-    QString url = (m_cfg.effectiveUseSsl() ? QStringLiteral("https://") : QStringLiteral("http://")) +
-                  host + path;
-    if (!query.isEmpty()) {
-        url += QStringLiteral("?") + QString::fromUtf8(query);
-    }
+    const QString url = requestUrl(path, query);
 
     QNetworkRequest req{QUrl(url)};
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
@@ -142,6 +175,25 @@ QNetworkReply *S3Client::send(const QByteArray &method,
     }
 
     signRequest(req, method, path, query, payloadHash, m_cfg.bucket);
+
+    if (Log::enabled()) {
+        Log::write(Log::net(), 0,
+                   QStringLiteral("%1 %2  host=%3  region=%4  profile=%5  addressing=%6")
+                       .arg(QString::fromUtf8(method), url, host, effectiveRegion(),
+                            m_cfg.targetId.isEmpty() ? QStringLiteral("generic") : m_cfg.targetId,
+                            m_cfg.addressingStyle == int(AddressingStyle::VirtualHost)
+                                ? QStringLiteral("virtual-host")
+                                : QStringLiteral("path-style")));
+        // DPAPI failures and a blank secret are indistinguishable from a wrong
+        // key in the server's reply, so the key that was actually used is worth
+        // recording. Redacted: the log is a plain file beside settings.json.
+        Log::write(Log::net(), 0,
+                   QStringLiteral("  access-key=%1  secret=%2  port=%3  tls=%4")
+                       .arg(Log::redact(m_cfg.accessKey), Log::redact(m_cfg.secretKey),
+                            m_cfg.port().isEmpty() ? QStringLiteral("(default)") : m_cfg.port(),
+                            m_cfg.effectiveUseSsl() ? QStringLiteral("https")
+                                                    : QStringLiteral("http")));
+    }
 
     QNetworkReply *reply = nullptr;
     if (method == "GET") {
@@ -196,27 +248,64 @@ void S3Client::finish(QNetworkReply *reply, int requestId,
 
         const QByteArray body = reply->readAll();
         const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        const QString url = reply->url().toString();
 
         if (reply->error() == QNetworkReply::OperationCanceledError) {
+            logResult("cancelled", url, status, {}, S3Error::cancelled());
             cb({}, S3Error::cancelled());
             return;
         }
 
         // A transport error with no HTTP response at all is a network fault.
         if (status == 0 && reply->error() != QNetworkReply::NoError) {
-            cb({}, S3Error::fromNetwork(static_cast<int>(reply->error()), reply->errorString()));
+            const S3Error error =
+                S3Error::fromNetwork(static_cast<int>(reply->error()), reply->errorString());
+            logResult("failed", url, status, body, error);
+            cb({}, error);
             return;
         }
 
         if (status >= 200 && status < 300) {
+            logResult("ok", url, status, {}, {});
             cb(body, {});
             return;
         }
 
         const QString requestIdHeader =
             QString::fromUtf8(reply->rawHeader("x-amz-request-id"));
-        cb({}, S3Error::fromResponse(status, body, requestIdHeader));
+        const S3Error error = S3Error::fromResponse(status, body, requestIdHeader);
+        logResult("failed", url, status, body, error);
+        cb({}, error);
     });
+}
+
+void S3Client::logResult(const char *outcome, const QString &url, int status,
+                         const QByteArray &body, const S3Error &error) const {
+    if (!Log::enabled()) {
+        return;
+    }
+
+    if (error.isEmpty()) {
+        Log::write(Log::net(), 0,
+                   QStringLiteral("%1 %2 %3").arg(QString::fromLatin1(outcome),
+                                                 QString::number(status), url));
+        return;
+    }
+
+    Log::write(Log::net(), error.isRetryable() ? 1 : 2,
+               QStringLiteral("%1 %2 %3  kind=%4  code=%5  request-id=%6  %7")
+                   .arg(QString::fromLatin1(outcome), QString::number(status), url,
+                        QString::fromLatin1(errorKindName(error.kind())),
+                        error.serverCode().isEmpty() ? QStringLiteral("-") : error.serverCode(),
+                        error.requestId().isEmpty() ? QStringLiteral("-") : error.requestId(),
+                        error.message()));
+
+    // The body is where the provider explains itself, and for a signature
+    // failure it is the only place the real reason appears.
+    if (!body.isEmpty()) {
+        Log::write(Log::net(), 2,
+                   QStringLiteral("  response body: %1").arg(Log::summariseBody(body)));
+    }
 }
 
 int S3Client::listObjects(const QString &startAfter, const QString &prefix, int maxKeys,
@@ -358,9 +447,12 @@ int S3Client::uploadFile(const QString &localPath, const QString &objectName,
 
     const qint64 total = file->size();
 
-    QNetworkRequest req{QUrl((m_cfg.effectiveUseSsl() ? QStringLiteral("https://")
-                                                      : QStringLiteral("http://")) +
-                             requestHost(m_cfg.bucket) + objectPath(m_cfg.bucket, objectName))};
+    // requestUrl() rather than a second hand-built URL: the first version
+    // concatenated the raw endpoint here and skipped host() entirely, so an
+    // upload to a connection whose endpoint was stored with a scheme would have
+    // failed exactly as the listing did.
+    const QString path = objectPath(m_cfg.bucket, objectName);
+    QNetworkRequest req{QUrl(requestUrl(path, {}))};
     req.setHeader(QNetworkRequest::ContentLengthHeader, total);
     req.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("us3qt/1.0"));
     req.setTransferTimeout(0); // large uploads must not be cut off mid-stream
@@ -375,8 +467,15 @@ int S3Client::uploadFile(const QString &localPath, const QString &objectName,
     // file twice, so the signature declares the payload unsigned. AWS and every
     // provider we target accept this; it is the standard approach for
     // streamed PUTs.
-    signRequest(req, "PUT", objectPath(m_cfg.bucket, objectName), {},
-                QByteArray(SigV4::kUnsignedPayload), m_cfg.bucket);
+    signRequest(req, "PUT", path, {}, QByteArray(SigV4::kUnsignedPayload), m_cfg.bucket);
+
+    if (Log::enabled()) {
+        Log::write(Log::net(), 0,
+                   QStringLiteral("PUT %1  host=%2  %3 bytes  region=%4")
+                       .arg(req.url().toString(), requestHost(m_cfg.bucket))
+                       .arg(total)
+                       .arg(effectiveRegion()));
+    }
 
     QNetworkReply *reply = m_nam->put(req, file);
     file->setParent(reply);
@@ -424,6 +523,7 @@ int S3Client::downloadObject(
         m_inFlight.remove(id);
 
         if (reply->error() == QNetworkReply::OperationCanceledError) {
+            logResult("cancelled", reply->url().toString(), 0, {}, S3Error::cancelled());
             reply->deleteLater();
             cb(false, nullptr, S3Error::cancelled());
             return;
@@ -431,20 +531,27 @@ int S3Client::downloadObject(
 
         const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (status >= 200 && status < 300 && reply->error() == QNetworkReply::NoError) {
+            logResult("ok", reply->url().toString(), status, {}, {});
             // Hand the open reply to the caller; it owns closing and deleting.
             cb(true, reply, {});
             return;
         }
 
         const QByteArray body = reply->readAll();
+        const QString url = reply->url().toString();
         reply->deleteLater();
 
         if (status == 0) {
-            cb(false, nullptr,
-               S3Error::fromNetwork(static_cast<int>(reply->error()), reply->errorString()));
+            const S3Error error =
+                S3Error::fromNetwork(static_cast<int>(reply->error()), reply->errorString());
+            logResult("failed", url, status, body, error);
+            cb(false, nullptr, error);
             return;
         }
-        cb(false, nullptr, S3Error::fromResponse(status, body));
+
+        const S3Error error = S3Error::fromResponse(status, body);
+        logResult("failed", url, status, body, error);
+        cb(false, nullptr, error);
     });
 
     return id;

@@ -133,6 +133,36 @@ QString humanise(const QString &code) {
 
 } // namespace
 
+const char *errorKindName(ErrorKind kind) {
+    switch (kind) {
+    case ErrorKind::None:
+        return "none";
+    case ErrorKind::Network:
+        return "network";
+    case ErrorKind::Timeout:
+        return "timeout";
+    case ErrorKind::Auth:
+        return "auth";
+    case ErrorKind::NotFound:
+        return "not-found";
+    case ErrorKind::AccessDenied:
+        return "access-denied";
+    case ErrorKind::RateLimited:
+        return "rate-limited";
+    case ErrorKind::ServerError:
+        return "server-error";
+    case ErrorKind::Protocol:
+        return "protocol";
+    case ErrorKind::Cancelled:
+        return "cancelled";
+    case ErrorKind::Config:
+        return "config";
+    case ErrorKind::Unknown:
+        return "unknown";
+    }
+    return "?";
+}
+
 S3Error::S3Error(ErrorKind kind, QString message)
     : m_kind(kind), m_message(std::move(message)) {}
 

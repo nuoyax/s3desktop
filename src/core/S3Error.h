@@ -7,6 +7,10 @@
 
 namespace us3 {
 
+/// A one-word name for an ErrorKind, for log lines. Kept next to the enum in
+/// S3Types.h so a new member cannot be added without a name to print.
+const char *errorKindName(ErrorKind kind);
+
 /// A failure that carries enough structure for the UI to react sensibly:
 /// whether to retry, what to tell the user, and the raw server code.
 ///

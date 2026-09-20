@@ -48,11 +48,28 @@ public:
     /// app, which had no such field.
     TlsPolicy tls = TlsPolicy::VerifyStrict;
 
-    /// The effective TLS policy, reconciling the legacy `useSsl` flag.
-    bool effectiveUseSsl() const { return useSsl || tls != TlsPolicy::Disabled; }
+    /// The scheme written into `endpoint`, lowercased: "http", "https", or empty
+    /// when the endpoint was given as a bare host.
+    QString schemeFromEndpoint() const;
+
+    /// The effective TLS policy, reconciling the legacy `useSsl` flag and any
+    /// scheme the user typed into the endpoint field.
+    ///
+    /// An explicit scheme wins over the checkbox. A user who types
+    /// "http://10.0.0.5:3900" has stated the transport twice, and honouring the
+    /// checkbox instead sends an https request to a plain-HTTP service — which
+    /// fails as a TLS handshake error that names neither the field nor the
+    /// setting responsible.
+    bool effectiveUseSsl() const;
 
     /// Host portion of `endpoint`, without any port.
     QString host() const;
+
+    /// Port from `endpoint`, or empty when none was given. Kept separate from
+    /// host() so the signed Host header stays bare while the URL keeps the port:
+    /// signing "host:3900" is rejected by every provider, and dropping the port
+    /// entirely reaches the wrong service.
+    QString port() const;
 
     /// Validate before any request is attempted, so the user gets a precise
     /// complaint instead of a signature error from the server.

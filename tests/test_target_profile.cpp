@@ -25,6 +25,17 @@ private slots:
     void stripsASchemeFromAPastedEndpoint();
     void transientSentinelNeverEqualsARealName();
     void legacyTlsFlagReconcilesWithTheNewPolicy();
+
+    // The URL a connection actually produces. Getting this wrong is invisible
+    // until a request fails with an error that names something else entirely.
+    void hostKeepsAPort();
+    void hostOmitsTheDefaultPort();
+    void hostStripsASchemeBeforeBuildingTheUrl();
+    void hostStripsAPathFromAPastedEndpoint();
+    void hostRejectsANonNumericPort();
+    void hostHandlesAnIpv6Literal();
+    void anEndpointSchemeBeatsTheTlsCheckbox();
+    void hostHandlesAnIpv6LiteralUnbracketed();
 };
 
 void TestTargetProfile::genericIsPathStyleAndSigV4() {
@@ -157,6 +168,145 @@ void TestTargetProfile::legacyTlsFlagReconcilesWithTheNewPolicy() {
     QVERIFY(config.effectiveUseSsl());
     config.tls = TlsPolicy::AllowSelfSigned;
     QVERIFY(config.effectiveUseSsl());
+}
+
+// ---------------------------------------------------------------------------
+// host() and port()
+//
+// These do double duty: host() is the value signed as the Host header, and
+// host()+port() is the authority of the URL. A mismatch between the two is a
+// SignatureDoesNotMatch that the server reports without explanation, so both
+// halves are pinned down here.
+// ---------------------------------------------------------------------------
+
+void TestTargetProfile::hostKeepsAPort() {
+    S3Config config;
+    config.endpoint = QStringLiteral("10.0.0.5:9000");
+    config.useSsl = false;
+
+    // Both halves are needed and neither implies the other: the Host header must
+    // name the port the service is actually listening on, and region derivation
+    // must not see it.
+    QCOMPARE(config.host(), QStringLiteral("10.0.0.5"));
+    QCOMPARE(config.port(), QStringLiteral("9000"));
+}
+
+void TestTargetProfile::hostOmitsTheDefaultPort() {
+    S3Config config;
+    config.useSsl = true;
+
+    config.endpoint = QStringLiteral("s3-cn-bj.ufileos.com:443");
+    QCOMPARE(config.host(), QStringLiteral("s3-cn-bj.ufileos.com"));
+    QCOMPARE(config.port(), QStringLiteral("443"));
+
+    // A non-default port is kept: without it the URL reaches nothing.
+    config.endpoint = QStringLiteral("s3-cn-bj.ufileos.com:8443");
+    QCOMPARE(config.port(), QStringLiteral("8443"));
+}
+
+void TestTargetProfile::hostStripsASchemeBeforeBuildingTheUrl() {
+    // The bug this guards: the endpoint is stored exactly as typed, and a user
+    // who pastes "http://203.0.113.10:3900" into the endpoint field got a URL
+    // of "https://http://203.0.113.10:3900/". QUrl accepts that, reads "http"
+    // as the host, and the request fails with "Host http not found".
+    S3Config config;
+    config.endpoint = QStringLiteral("http://203.0.113.10:3900");
+    config.useSsl = true;
+
+    QCOMPARE(config.host(), QStringLiteral("203.0.113.10"));
+    QCOMPARE(config.port(), QStringLiteral("3900"));
+
+    // No part of the scheme survives into either half.
+    QVERIFY(!config.host().contains(QStringLiteral("://")));
+    QVERIFY(!config.host().contains(QStringLiteral("http")));
+}
+
+void TestTargetProfile::hostStripsAPathFromAPastedEndpoint() {
+    S3Config config;
+    config.endpoint = QStringLiteral("https://s3-cn-bj.ufileos.com:9000/some/bucket/path");
+    config.useSsl = true;
+
+    QCOMPARE(config.host(), QStringLiteral("s3-cn-bj.ufileos.com"));
+    QCOMPARE(config.port(), QStringLiteral("9000"));
+}
+
+void TestTargetProfile::hostRejectsANonNumericPort() {
+    // A colon that is not a port — a stray paste, or a hostname with a colon in
+    // it — must not produce a port string that gets spliced into a URL.
+    S3Config config;
+    config.endpoint = QStringLiteral("s3.example.com:notaport");
+
+    QCOMPARE(config.host(), QStringLiteral("s3.example.com"));
+    QVERIFY(config.port().isEmpty());
+
+    config.endpoint = QStringLiteral("s3.example.com:");
+    QVERIFY(config.port().isEmpty());
+}
+
+void TestTargetProfile::hostHandlesAnIpv6Literal() {
+    S3Config config;
+    config.endpoint = QStringLiteral("[2001:db8::1]:9000");
+    config.useSsl = false;
+
+    // The brackets stay: a bare "2001:db8::1" is not a valid URL authority and
+    // the colons inside it are not port separators.
+    QCOMPARE(config.host(), QStringLiteral("[2001:db8::1]"));
+    QCOMPARE(config.port(), QStringLiteral("9000"));
+
+    config.endpoint = QStringLiteral("[2001:db8::1]");
+    QCOMPARE(config.host(), QStringLiteral("[2001:db8::1]"));
+    QVERIFY(config.port().isEmpty());
+}
+
+void TestTargetProfile::anEndpointSchemeBeatsTheTlsCheckbox() {
+    // The case this exists for: a connection saved with the "Use SSL" box ticked
+    // and an endpoint the user pasted complete with "http://". Sending https to a
+    // plain-HTTP service fails as a TLS handshake error, which points at
+    // certificates rather than at the two fields that disagree.
+    S3Config config;
+    config.useSsl = true;
+    config.tls = TlsPolicy::VerifyStrict;
+    config.endpoint = QStringLiteral("http://203.0.113.10:3900");
+
+    QCOMPARE(config.schemeFromEndpoint(), QStringLiteral("http"));
+    QVERIFY(!config.effectiveUseSsl());
+
+    // And the reverse: an https endpoint with the box cleared still gets TLS.
+    config.useSsl = false;
+    config.tls = TlsPolicy::Disabled;
+    config.endpoint = QStringLiteral("https://s3-cn-bj.ufileos.com");
+    QCOMPARE(config.schemeFromEndpoint(), QStringLiteral("https"));
+    QVERIFY(config.effectiveUseSsl());
+
+    // No scheme means the checkbox and the policy decide, as before.
+    config.endpoint = QStringLiteral("s3-cn-bj.ufileos.com");
+    QVERIFY(config.schemeFromEndpoint().isEmpty());
+    QVERIFY(!config.effectiveUseSsl());
+    config.useSsl = true;
+    QVERIFY(config.effectiveUseSsl());
+
+    // A scheme we cannot speak is not a transport decision.
+    config.endpoint = QStringLiteral("ftp://s3.example.com");
+    QVERIFY(config.schemeFromEndpoint().isEmpty());
+}
+
+void TestTargetProfile::hostHandlesAnIpv6LiteralUnbracketed() {
+    // A literal pasted without brackets cannot be parsed: every colon in it looks
+    // like a port separator. Truncating silently would send requests to a host
+    // named "2001", so validate() rejects it instead and says why.
+    S3Config config;
+    config.name = QStringLiteral("v6");
+    config.accessKey = QStringLiteral("key");
+    config.secretKey = QStringLiteral("secret");
+    config.endpoint = QStringLiteral("2001:db8::1:9000");
+
+    QVERIFY(config.validate().contains(QStringLiteral("brackets")));
+
+    // Bracketed, the same address parses cleanly.
+    config.endpoint = QStringLiteral("[2001:db8::1]:9000");
+    QVERIFY(config.validate().isEmpty());
+    QCOMPARE(config.host(), QStringLiteral("[2001:db8::1]"));
+    QCOMPARE(config.port(), QStringLiteral("9000"));
 }
 
 QTEST_APPLESS_MAIN(TestTargetProfile)

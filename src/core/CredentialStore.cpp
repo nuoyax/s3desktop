@@ -1,5 +1,7 @@
 #include "core/CredentialStore.h"
 
+#include "core/Log.h"
+
 #include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
@@ -83,6 +85,8 @@ QString CredentialStore::blobPath(const QString &account) const {
 bool CredentialStore::set(const QString &account, const QString &secret) {
     if (m_dir.isEmpty()) {
         m_lastError = QStringLiteral("Credential store was not initialised");
+        Log::write(Log::core(), 2,
+                   QStringLiteral("secret NOT stored for \"%1\": store not initialised").arg(account));
         return false;
     }
 
@@ -91,6 +95,11 @@ bool CredentialStore::set(const QString &account, const QString &secret) {
 #ifdef Q_OS_WIN
     QByteArray sealed;
     if (!dpapiProtect(payload, &sealed, &m_lastError)) {
+        // The connection still works, but the secret was written to
+        // settings.json in the clear. That is worth a loud line.
+        Log::write(Log::core(), 2,
+                   QStringLiteral("DPAPI could not seal the secret for \"%1\": %2")
+                       .arg(account, m_lastError));
         return false;
     }
     payload = sealed;
@@ -99,15 +108,26 @@ bool CredentialStore::set(const QString &account, const QString &secret) {
     QFile f(blobPath(account));
     if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
         m_lastError = f.errorString();
+        Log::write(Log::core(), 2,
+                   QStringLiteral("could not write the secret for \"%1\": %2")
+                       .arg(account, m_lastError));
         return false;
     }
     // Tighten before writing so the secret is never briefly world-readable.
     f.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner);
     if (f.write(payload) != payload.size()) {
         m_lastError = f.errorString();
+        Log::write(Log::core(), 2,
+                   QStringLiteral("short write storing the secret for \"%1\": %2")
+                       .arg(account, m_lastError));
         return false;
     }
     f.close();
+
+    Log::write(Log::core(), 0,
+               QStringLiteral("secret stored for \"%1\" via %2 (%3 bytes sealed)")
+                   .arg(account, backendName())
+                   .arg(payload.size()));
     return true;
 }
 
@@ -118,12 +138,19 @@ QString CredentialStore::get(const QString &account) const {
 
     QFile f(blobPath(account));
     if (!f.open(QIODevice::ReadOnly)) {
+        // The most common cause by far: a secret that was never persisted, or
+        // settings.json naming a connection whose credential file is gone.
+        Log::write(Log::core(), 1,
+                   QStringLiteral("no stored secret for \"%1\" (%2)")
+                       .arg(account, blobPath(account)));
         return {};
     }
     QByteArray payload = f.readAll();
     f.close();
 
     if (payload.isEmpty()) {
+        Log::write(Log::core(), 1,
+                   QStringLiteral("stored secret for \"%1\" is empty").arg(account));
         return {};
     }
 
@@ -132,11 +159,17 @@ QString CredentialStore::get(const QString &account) const {
     if (!dpapiUnprotect(payload, &plain, &m_lastError)) {
         // Wrong user account, or a file written by an older build: report
         // nothing rather than a garbled secret.
+        Log::write(Log::core(), 2,
+                   QStringLiteral("DPAPI could not unseal the secret for \"%1\": %2 "
+                                  "(was it saved by a different Windows account?)")
+                       .arg(account, m_lastError));
         return {};
     }
     payload = plain;
 #endif
 
+    Log::write(Log::core(), 0,
+               QStringLiteral("secret recovered for \"%1\" (%2 bytes)").arg(account).arg(payload.size()));
     return QString::fromUtf8(payload);
 }
 

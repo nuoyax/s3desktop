@@ -1,3 +1,4 @@
+#include "core/Log.h"
 #include "ui/MainWindow.h"
 #include "ui/Theme.h"
 
@@ -21,6 +22,15 @@ int main(int argc, char *argv[]) {
     QApplication::setApplicationVersion(QStringLiteral("0.1.0"));
     QApplication::setOrganizationName(QStringLiteral("us3qt"));
     QApplication::setOrganizationDomain(QStringLiteral("us3qt.local"));
+
+    // Logging goes up before anything else can fail, and before the parser, so
+    // that even a bad command line is recorded.
+    const QString logPath = us3::Log::install();
+    us3::Log::write(us3::Log::app(), 0,
+                    QStringLiteral("us3qt %1 starting  pid=%2  log=%3")
+                        .arg(QApplication::applicationVersion())
+                        .arg(QCoreApplication::applicationPid())
+                        .arg(logPath.isEmpty() ? QStringLiteral("(disabled)") : logPath));
 
     // A stable palette regardless of the system theme: the stylesheet assumes
     // light surfaces, and letting Windows switch to dark mid-session would leave

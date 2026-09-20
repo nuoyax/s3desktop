@@ -2,6 +2,7 @@
 
 #include "compat/TargetProfile.h"
 #include "core/ConnectionStore.h"
+#include "core/Log.h"
 #include "core/S3Client.h"
 #include "core/TransferQueue.h"
 #include "ui/BucketManager.h"
@@ -159,6 +160,16 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
                              QStringLiteral("Settings could not be read.\n\n%1").arg(warning));
     } else if (!warning.isEmpty()) {
         setStatusMessage(warning, true);
+    }
+
+    Log::write(Log::app(), 0,
+               QStringLiteral("store loaded from %1: %2 connection(s)")
+                   .arg(m_store->configDir())
+                   .arg(m_store->connections().size()));
+
+    if (const QString logPath = Log::filePath(); !logPath.isEmpty()) {
+        m_statusMessage->setToolTip(
+            QStringLiteral("Logging to %1").arg(logPath));
     }
 
     // A connection described entirely by the environment skips the dialog, which
