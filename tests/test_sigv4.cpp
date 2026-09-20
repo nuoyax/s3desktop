@@ -3,7 +3,7 @@
 #include <QTest>
 #include <QTimeZone>
 
-using namespace us3;
+using namespace s3desktop;
 
 /// Signature Version 4 against AWS's published worked examples.
 ///

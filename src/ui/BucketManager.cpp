@@ -14,7 +14,7 @@
 #include <QTableWidget>
 #include <QVBoxLayout>
 
-namespace us3 {
+namespace s3desktop {
 
 BucketManager::BucketManager(QWidget *parent) : QDialog(parent) {
     setWindowTitle(QStringLiteral("Buckets"));
@@ -261,4 +261,4 @@ void BucketManager::onUseSelected() {
     accept();
 }
 
-} // namespace us3
+} // namespace s3desktop

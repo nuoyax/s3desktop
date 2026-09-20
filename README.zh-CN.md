@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="assets/icon.svg" alt="BucketExplorer" width="96" height="96">
+<img src="assets/icon.svg" alt="S3 Desktop" width="96" height="96">
 
-# BucketExplorer
+# S3 Desktop
 
 **一款快速的原生 S3 兼容对象存储桌面客户端。**
 
@@ -19,7 +19,7 @@ UCloud US3 · AWS S3 · MinIO · 以及任何实现了 S3 API 的服务
 
 ---
 
-本项目是 [pteich/us3ui](https://github.com/pteich/us3ui) 的 **Qt 重写版**。
+本项目是对一个 MIT 许可的早期 Go/Fyne 版 S3 兼容存储客户端的 **Qt 重写版**。
 它不是移植：原版 Go/Fyne 代码没有一行被翻译过来。全部功能基于 Qt 6 与自行
 实现的 SigV4 签名器从零重写，因为原版的结构——一个 1150 行、从后台 goroutine
 调用厂商 SDK 的单一窗口——正是它的缺陷难以修复的根源。
@@ -33,6 +33,7 @@ UCloud US3 · AWS S3 · MinIO · 以及任何实现了 S3 API 的服务
 - [测试](#测试)
 - [日志](#日志)
 - [目录结构](#目录结构)
+- [版本](#版本)
 - [许可证](#许可证)
 
 ## 功能
@@ -87,7 +88,7 @@ cmake --build build
 ```
 
 > [!NOTE]
-> 产物为 `build/bucketexplorer.exe`。Windows 下按 GUI 子系统编译，不会附带控制台窗口。
+> 产物为 `build/s3desktop.exe`。Windows 下按 GUI 子系统编译，不会附带控制台窗口。
 
 ## 静态编译
 
@@ -112,11 +113,11 @@ cmake --install . --prefix C:/Qt/6.9.3/mingw1310_64_static
 ```sh
 cmake -S . -B build-static -G Ninja -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_PREFIX_PATH=C:/Qt/6.9.3/mingw1310_64_static \
-      -DBUCKETEXPLORER_STATIC=ON
+      -DS3DESKTOP_STATIC=ON
 cmake --build build-static
 ```
 
-`BUCKETEXPLORER_STATIC` 默认为关，且刻意不从 Qt 安装推断：静态 Qt 是另一套前缀，
+`S3DESKTOP_STATIC` 默认为关，且刻意不从 Qt 安装推断：静态 Qt 是另一套前缀，
 若从 `Qt6Core_LIBRARIES` 猜测，`CMAKE_PREFIX_PATH` 一旦改指别处，构建方式就会
 在无人察觉的情况下改变。
 
@@ -127,7 +128,7 @@ cmake --build build-static
 > `QSchannelBackendPlugin`（TLS）以及 ICO/JPEG/GIF 图像格式；MinGW 下同时传入
 > `-static`，使 libgcc、libstdc++ 与 libwinpthread 一并静态绑定，而不是留作 DLL。
 
-结果：`bucketexplorer.exe` 约 51 MB，仅导入 Windows 系统 DLL——没有
+结果：`s3desktop.exe` 约 51 MB，仅导入 Windows 系统 DLL——没有
 `Qt6*.dll`、没有 `libgcc_s_seh-1.dll`、没有 `libstdc++-6.dll`、
 没有 `libwinpthread-1.dll`。
 
@@ -140,7 +141,7 @@ ctest --test-dir build --output-on-failure
 > [!IMPORTANT]
 > 测试程序动态链接 Qt，因此需要把 Qt 的 `bin` 目录加入 `PATH`
 > （`C:/Qt/6.9.3/mingw_64/bin`）；否则会在运行任何用例之前以
-> `0xc0000135` 退出。以 `-DBUCKETEXPLORER_STATIC=ON` 构建时无此要求——
+> `0xc0000135` 退出。以 `-DS3DESKTOP_STATIC=ON` 构建时无此要求——
 > `PATH` 中只有 `C:\Windows\system32` 也能跑完整套件。
 
 六个测试套件，均不需要显示器或网络：
@@ -156,15 +157,15 @@ ctest --test-dir build --output-on-failure
 
 ## 日志
 
-每次运行都会在 `settings.json` 同目录写入 `bucketexplorer.log`——Windows 下为
-`%LOCALAPPDATA%\bucketexplorer\bucketexplorer\`。上一次的日志保留为
-`bucketexplorer.log.1`。
+每次运行都会在 `settings.json` 同目录写入 `s3desktop.log`——Windows 下为
+`%LOCALAPPDATA%\s3desktop\s3desktop\`。上一次的日志保留为
+`s3desktop.log.1`。
 
 日志记录每次请求真实拼出的 URL、真实参与签名的主机、使用的端口，以及凭据
 存储对密钥的判断结果。失败时追加 HTTP 状态码、服务端 `<Code>` 与请求 ID，
 以及响应体——签名类问题只有响应体会写明真正的原因。密钥会脱敏为前四后二。
 
-`BUCKETEXPLORER_LOG` 可指定路径，设为 `off` 则关闭日志。
+`S3DESKTOP_LOG` 可指定路径，设为 `off` 则关闭日志。
 
 ## 目录结构
 
@@ -178,6 +179,13 @@ tests/        Qt Test 测试套件
 `core` 与 `compat` 只链接 Qt Core/Network，因此所有「出错也不易被用户察觉」
 的逻辑都能独立测试。`ui` 单独编译为静态库，使模型与主题可以在
 `QApplication` 下被验证，而无需打开主窗口。
+
+## 版本
+
+`VERSION` 保存当前版本号，每行一个裸版本号。**检查更新**动作会从本仓库默认
+分支抓取该文件，与编译进程序的版本比对；若当前构建更旧，则询问是否打开项目
+页。发布新版本时需同时修改 `VERSION` 与 `src/ui/MainWindow.cpp` 中的
+`kVersion`。
 
 ## 许可证
 

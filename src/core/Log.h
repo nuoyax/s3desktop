@@ -3,7 +3,7 @@
 #include <QLoggingCategory>
 #include <QString>
 
-namespace us3 {
+namespace s3desktop {
 
 /// Application logging: a rotating file beside settings.json, plus Qt's own
 /// messages.
@@ -27,8 +27,8 @@ Q_DECLARE_LOGGING_CATEGORY(app)
 
 /// Direct Qt's messages into the log file and open it.
 ///
-/// `path` empty means the default location, or BUCKETEXPLORER_LOG if set. Setting
-/// BUCKETEXPLORER_LOG=off disables logging entirely, which matters when the log file is
+/// `path` empty means the default location, or S3DESKTOP_LOG if set. Setting
+/// S3DESKTOP_LOG=off disables logging entirely, which matters when the log file is
 /// itself suspected of causing trouble. Safe to call once, early in main();
 /// calling it twice is a no-op. Returns the file actually opened, or empty.
 QString install(const QString &path = {});
@@ -51,4 +51,4 @@ void write(const QLoggingCategory &category, int level, const QString &message);
 QString summariseBody(const QByteArray &body, int limit = 600);
 
 } // namespace Log
-} // namespace us3
+} // namespace s3desktop

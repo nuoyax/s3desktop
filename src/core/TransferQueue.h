@@ -9,7 +9,7 @@
 
 #include <functional>
 
-namespace us3 {
+namespace s3desktop {
 
 /// A single transfer the user has asked for.
 struct TransferItem {
@@ -104,4 +104,4 @@ private:
     QHash<int, int> m_requestIds; ///< item index -> live S3Client request id
 };
 
-} // namespace us3
+} // namespace s3desktop

@@ -13,7 +13,7 @@
 #include <QTimer>
 #include <QVBoxLayout>
 
-namespace us3 {
+namespace s3desktop {
 
 namespace {
 
@@ -328,4 +328,4 @@ void TransferPanel::onClearFinished() {
     refresh();
 }
 
-} // namespace us3
+} // namespace s3desktop

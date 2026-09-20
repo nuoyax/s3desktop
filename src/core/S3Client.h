@@ -12,12 +12,12 @@
 
 #include <functional>
 
-// Declared at global scope, not inside namespace us3, so the unqualified names
-// below resolve to Qt's classes rather than to us3::QNetworkRequest.
+// Declared at global scope, not inside namespace s3desktop, so the unqualified names
+// below resolve to Qt's classes rather than to s3desktop::QNetworkRequest.
 class QNetworkAccessManager;
 class QNetworkReply;
 
-namespace us3 {
+namespace s3desktop {
 
 /// Result slot for one operation: a value plus an error.
 ///
@@ -180,4 +180,4 @@ private:
     int m_nextId = 1;
 };
 
-} // namespace us3
+} // namespace s3desktop

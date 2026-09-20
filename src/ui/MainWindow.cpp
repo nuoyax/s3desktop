@@ -45,17 +45,16 @@
 #include <QUrl>
 #include <QVBoxLayout>
 
-namespace us3 {
+namespace s3desktop {
 
 namespace {
 
-/// Bumped by hand; the version check below compares against the upstream
-/// repository's FyneApp.toml, which is the only release marker the original
-/// project publishes.
+/// Bumped by hand. The version check below fetches the VERSION file from this
+/// repository's default branch and compares against it.
 const char *kVersion = "0.1.0";
 
-const char *kProjectUrl = "https://github.com/pteich/us3ui";
-const char *kVersionUrl = "https://raw.githubusercontent.com/pteich/us3ui/refs/heads/main/FyneApp.toml";
+const char *kProjectUrl = "https://github.com/halo/s3desktop";
+const char *kVersionUrl = "https://raw.githubusercontent.com/halo/s3desktop/refs/heads/main/VERSION";
 
 /// Page size for a listing. The original used 500 and updated the UI every
 /// 500ms; here the page size is the same because it balances request count
@@ -70,7 +69,7 @@ QString elide(const QString &text, int limit = 60) {
 } // namespace
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
-    setWindowTitle(QStringLiteral("BucketExplorer"));
+    setWindowTitle(QStringLiteral("S3 Desktop"));
     setAcceptDrops(true);
     resize(1180, 720);
 
@@ -247,7 +246,7 @@ void MainWindow::buildActions() {
     m_actSortAsc->setChecked(true);
 
     m_actVersion = new QAction(QStringLiteral("Check for &updates…"), this);
-    m_actAbout = new QAction(QStringLiteral("&About BucketExplorer"), this);
+    m_actAbout = new QAction(QStringLiteral("&About S3 Desktop"), this);
 
     connect(m_actConnect, &QAction::triggered, this, &MainWindow::onConnectDialog);
     connect(m_actUpload, &QAction::triggered, this, &MainWindow::onUpload);
@@ -636,7 +635,7 @@ void MainWindow::applyConfigToUi() {
 }
 
 void MainWindow::updateWindowTitle() {
-    QString title = QStringLiteral("BucketExplorer");
+    QString title = QStringLiteral("S3 Desktop");
     if (!m_config.name.isEmpty()) {
         title += QStringLiteral(" — ") + m_config.name;
     }
@@ -1157,9 +1156,8 @@ void MainWindow::onTransferFinished(int itemId, bool ok) {
 void MainWindow::onCheckVersion() {
     setStatusMessage(QStringLiteral("Checking for updates…"));
 
-    // A plain GET against the upstream manifest, since that is the only version
-    // marker the project publishes. The original hard-coded this same URL inside
-    // its UI code; here it is one named constant.
+    // A plain GET against this repository's VERSION file — the same file that
+    // names the release, fetched from the default branch.
     auto *manager = new QNetworkAccessManager(this);
     connect(manager, &QNetworkAccessManager::finished, this,
             [this, manager](QNetworkReply *reply) {
@@ -1173,23 +1171,19 @@ void MainWindow::onCheckVersion() {
                     return;
                 }
 
-                // FyneApp.toml is TOML; the version line reads  Version = "0.10.0".
+                // The file holds the bare version on its first non-empty line.
                 const QString body = QString::fromUtf8(reply->readAll());
                 QString latest;
                 for (const QString &line : body.split(QLatin1Char('\n'))) {
                     const QString trimmed = line.trimmed();
-                    if (trimmed.startsWith(QStringLiteral("Version"), Qt::CaseInsensitive) &&
-                        trimmed.contains(QLatin1Char('='))) {
-                        latest = trimmed.section(QLatin1Char('='), 1)
-                                     .remove(QLatin1Char('"'))
-                                     .remove(QLatin1Char(' '))
-                                     .trimmed();
+                    if (!trimmed.isEmpty()) {
+                        latest = trimmed;
                         break;
                     }
                 }
 
                 if (latest.isEmpty()) {
-                    setStatusMessage(QStringLiteral("The upstream version could not be read."),
+                    setStatusMessage(QStringLiteral("The published version could not be read."),
                                      true);
                     return;
                 }
@@ -1200,12 +1194,12 @@ void MainWindow::onCheckVersion() {
                     return;
                 }
 
-                setStatusMessage(QStringLiteral("Upstream is at %1; this build is %2.")
+                setStatusMessage(QStringLiteral("Published version is %1; this build is %2.")
                                      .arg(latest, QLatin1String(kVersion)));
 
                 const auto answer = QMessageBox::information(
                     this, QStringLiteral("Version"),
-                    QStringLiteral("The upstream project reports version %1.\n"
+                    QStringLiteral("The published version is %1.\n"
                                    "This build is %2.\n\nOpen the project page?")
                         .arg(latest, QLatin1String(kVersion)),
                     QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
@@ -1220,14 +1214,13 @@ void MainWindow::onCheckVersion() {
 
 void MainWindow::onAbout() {
     QMessageBox::about(
-        this, QStringLiteral("About BucketExplorer"),
-        QStringLiteral("<h3>BucketExplorer %1</h3>"
+        this, QStringLiteral("About S3 Desktop"),
+        QStringLiteral("<h3>S3 Desktop %1</h3>"
                        "<p>A Qt front end for S3-compatible object storage, with UCloud US3 "
                        "and other non-AWS providers as first-class targets.</p>"
                        "<p>Written against the S3 REST API with its own SigV4 signer — no "
                        "vendor SDK.</p>"
-                       "<p style='color:#616161'>Inspired by <a href=\"%2\">pteich/us3ui</a>, "
-                       "which this is a from-scratch rewrite of rather than a port.</p>")
+                       "<p style='color:#616161'>Project page: <a href=\"%2\">%2</a></p>")
             .arg(QLatin1String(kVersion), QLatin1String(kProjectUrl)));
 }
 
@@ -1327,4 +1320,4 @@ void MainWindow::closeEvent(QCloseEvent *event) {
     }
 }
 
-} // namespace us3
+} // namespace s3desktop

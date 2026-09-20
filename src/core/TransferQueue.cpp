@@ -8,7 +8,7 @@
 #include <QNetworkReply>
 #include <QTimer>
 
-namespace us3 {
+namespace s3desktop {
 
 QString TransferItem::displayName() const {
     return direction == Direction::Upload ? QFileInfo(localPath).fileName()
@@ -319,4 +319,4 @@ void TransferQueue::clearFinished() {
     emit changed();
 }
 
-} // namespace us3
+} // namespace s3desktop

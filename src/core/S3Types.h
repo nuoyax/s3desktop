@@ -5,7 +5,7 @@
 #include <QList>
 #include <QString>
 
-namespace us3 {
+namespace s3desktop {
 
 /// One object as returned by a ListObjectsV2 page.
 struct ObjectInfo {
@@ -60,4 +60,4 @@ struct TransferProgress {
     }
 };
 
-} // namespace us3
+} // namespace s3desktop

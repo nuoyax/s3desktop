@@ -7,7 +7,7 @@
 
 #include <algorithm>
 
-namespace us3 {
+namespace s3desktop {
 
 ObjectModel::ObjectModel(QObject *parent) : QAbstractTableModel(parent) {}
 
@@ -491,4 +491,4 @@ void ObjectModel::sort(int column, Qt::SortOrder order) {
     emit headerDataChanged(Qt::Horizontal, 0, ColumnCount - 1);
 }
 
-} // namespace us3
+} // namespace s3desktop

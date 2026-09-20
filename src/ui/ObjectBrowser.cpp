@@ -13,7 +13,7 @@
 #include <QToolButton>
 #include <QVBoxLayout>
 
-namespace us3 {
+namespace s3desktop {
 
 namespace {
 
@@ -524,4 +524,4 @@ void ObjectBrowser::setSearchText(const QString &text) {
     m_model->setSearchText(text);
 }
 
-} // namespace us3
+} // namespace s3desktop

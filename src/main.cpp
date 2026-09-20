@@ -18,16 +18,16 @@
 /// flags are present they win over the environment.
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
-    QApplication::setApplicationName(QStringLiteral("bucketexplorer"));
+    QApplication::setApplicationName(QStringLiteral("s3desktop"));
     QApplication::setApplicationVersion(QStringLiteral("0.1.0"));
-    QApplication::setOrganizationName(QStringLiteral("bucketexplorer"));
-    QApplication::setOrganizationDomain(QStringLiteral("bucketexplorer.local"));
+    QApplication::setOrganizationName(QStringLiteral("s3desktop"));
+    QApplication::setOrganizationDomain(QStringLiteral("s3desktop.local"));
 
     // Logging goes up before anything else can fail, and before the parser, so
     // that even a bad command line is recorded.
-    const QString logPath = us3::Log::install();
-    us3::Log::write(us3::Log::app(), 0,
-                    QStringLiteral("BucketExplorer %1 starting  pid=%2  log=%3")
+    const QString logPath = s3desktop::Log::install();
+    s3desktop::Log::write(s3desktop::Log::app(), 0,
+                    QStringLiteral("S3 Desktop %1 starting  pid=%2  log=%3")
                         .arg(QApplication::applicationVersion())
                         .arg(QCoreApplication::applicationPid())
                         .arg(logPath.isEmpty() ? QStringLiteral("(disabled)") : logPath));
@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
         QApplication::setStyle(const_cast<QStyle *>(fusion));
     }
 
-    us3::Theme::apply(app);
+    s3desktop::Theme::apply(app);
 
     QCommandLineParser parser;
     parser.setApplicationDescription(
@@ -112,7 +112,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    us3::MainWindow window;
+    s3desktop::MainWindow window;
     window.show();
 
     // Sized after show() so the initial layout is measured against the real

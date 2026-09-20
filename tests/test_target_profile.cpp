@@ -3,7 +3,7 @@
 
 #include <QTest>
 
-using namespace us3;
+using namespace s3desktop;
 
 /// Provider profiles and connection validation.
 ///

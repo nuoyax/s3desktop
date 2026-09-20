@@ -2,7 +2,7 @@
 
 #include <QString>
 
-namespace us3 {
+namespace s3desktop {
 
 /// Storage for secret keys, kept out of the settings file.
 ///
@@ -54,4 +54,4 @@ private:
     mutable QString m_lastError;
 };
 
-} // namespace us3
+} // namespace s3desktop

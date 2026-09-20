@@ -10,7 +10,7 @@
 
 #include <algorithm>
 
-namespace us3 {
+namespace s3desktop {
 
 const char *SigV4::kUnsignedPayload = "UNSIGNED-PAYLOAD";
 
@@ -280,4 +280,4 @@ QString SigV4::presignGet(const Request &req,
         .arg(scheme, req.host, req.path, QString::fromUtf8(sortedQuery), QString::fromUtf8(signature));
 }
 
-} // namespace us3
+} // namespace s3desktop

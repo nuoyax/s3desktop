@@ -6,7 +6,7 @@
 #include <QPair>
 #include <QString>
 
-namespace us3 {
+namespace s3desktop {
 
 /// AWS Signature Version 4, implemented against the published algorithm.
 ///
@@ -76,4 +76,4 @@ public:
     static const char *kUnsignedPayload; ///< "UNSIGNED-PAYLOAD"
 };
 
-} // namespace us3
+} // namespace s3desktop

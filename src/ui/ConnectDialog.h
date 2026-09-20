@@ -11,7 +11,7 @@ class QLineEdit;
 class QListWidget;
 class QPushButton;
 
-namespace us3 {
+namespace s3desktop {
 
 class ConnectionStore;
 class S3Client;
@@ -93,4 +93,4 @@ private:
     bool m_dirty = false;
 };
 
-} // namespace us3
+} // namespace s3desktop

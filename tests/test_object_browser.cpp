@@ -10,7 +10,7 @@
 #include <QTest>
 #include <QToolButton>
 
-using namespace us3;
+using namespace s3desktop;
 
 /// Navigation, the breadcrumb, and the three nav buttons.
 ///

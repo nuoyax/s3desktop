@@ -14,12 +14,12 @@
 
 #include <cstdio>
 
-namespace us3 {
+namespace s3desktop {
 
-Q_LOGGING_CATEGORY(Log::net, "bucketexplorer.net")
-Q_LOGGING_CATEGORY(Log::core, "bucketexplorer.core")
-Q_LOGGING_CATEGORY(Log::ui, "bucketexplorer.ui")
-Q_LOGGING_CATEGORY(Log::app, "bucketexplorer.app")
+Q_LOGGING_CATEGORY(Log::net, "s3desktop.net")
+Q_LOGGING_CATEGORY(Log::core, "s3desktop.core")
+Q_LOGGING_CATEGORY(Log::ui, "s3desktop.ui")
+Q_LOGGING_CATEGORY(Log::app, "s3desktop.app")
 
 namespace {
 
@@ -33,12 +33,12 @@ bool g_installed = false;
 /// suspected of causing trouble.
 bool loggingDisabledByEnv() {
     const QString v =
-        QProcessEnvironment::systemEnvironment().value(QStringLiteral("BUCKETEXPLORER_LOG")).trimmed().toLower();
+        QProcessEnvironment::systemEnvironment().value(QStringLiteral("S3DESKTOP_LOG")).trimmed().toLower();
     return v == QStringLiteral("off") || v == QStringLiteral("none") || v == QStringLiteral("0");
 }
 
 QString explicitPathFromEnv() {
-    return QProcessEnvironment::systemEnvironment().value(QStringLiteral("BUCKETEXPLORER_LOG")).trimmed();
+    return QProcessEnvironment::systemEnvironment().value(QStringLiteral("S3DESKTOP_LOG")).trimmed();
 }
 
 /// A timestamp with milliseconds: upload and listing failures are often a
@@ -110,7 +110,7 @@ QString Log::install(const QString &path) {
 
     QString dir = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
     if (dir.isEmpty()) {
-        dir = QDir::homePath() + QStringLiteral("/.bucketexplorer");
+        dir = QDir::homePath() + QStringLiteral("/.s3desktop");
     }
     QDir().mkpath(dir);
 
@@ -118,7 +118,7 @@ QString Log::install(const QString &path) {
     if (g_path.isEmpty()) {
         const QString fromEnv = explicitPathFromEnv();
         g_path = !fromEnv.isEmpty() ? fromEnv
-                                    : QDir(dir).filePath(QStringLiteral("bucketexplorer.log"));
+                                    : QDir(dir).filePath(QStringLiteral("s3desktop.log"));
     }
 
     // One prior log is kept: enough to diagnose an intermittent failure across a
@@ -188,4 +188,4 @@ QString Log::summariseBody(const QByteArray &body, int limit) {
     return text;
 }
 
-} // namespace us3
+} // namespace s3desktop

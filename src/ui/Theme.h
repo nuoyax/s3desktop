@@ -7,7 +7,7 @@
 
 class QApplication;
 
-namespace us3 {
+namespace s3desktop {
 
 /// The visual language of the application, in one place.
 ///
@@ -80,4 +80,4 @@ QString formatBytes(qint64 bytes);
 QString formatWhen(const QDateTime &when);
 
 } // namespace Theme
-} // namespace us3
+} // namespace s3desktop

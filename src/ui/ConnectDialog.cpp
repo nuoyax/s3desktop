@@ -21,7 +21,7 @@
 #include <QStyle>
 #include <QVBoxLayout>
 
-namespace us3 {
+namespace s3desktop {
 
 ConnectDialog::ConnectDialog(ConnectionStore *store, S3Client *client, QWidget *parent)
     : QDialog(parent), m_store(store), m_client(client) {
@@ -567,4 +567,4 @@ void ConnectDialog::preselect(const QString &name) {
     }
 }
 
-} // namespace us3
+} // namespace s3desktop

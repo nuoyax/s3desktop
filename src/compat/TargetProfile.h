@@ -3,7 +3,7 @@
 #include <QString>
 #include <QStringList>
 
-namespace us3 {
+namespace s3desktop {
 
 /// How requests are addressed to the server.
 enum class AddressingStyle {
@@ -66,4 +66,4 @@ struct TargetProfile {
     static QList<TargetProfile> all();
 };
 
-} // namespace us3
+} // namespace s3desktop

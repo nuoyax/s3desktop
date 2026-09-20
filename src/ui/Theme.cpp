@@ -9,7 +9,7 @@
 #include <QPixmap>
 #include <QPolygonF>
 
-namespace us3 {
+namespace s3desktop {
 namespace Theme {
 
 namespace {
@@ -662,4 +662,4 @@ QString formatWhen(const QDateTime &when) {
 }
 
 } // namespace Theme
-} // namespace us3
+} // namespace s3desktop

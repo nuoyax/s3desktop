@@ -7,7 +7,7 @@
 #include <QList>
 #include <QString>
 
-namespace us3 {
+namespace s3desktop {
 
 /// The object table's data model.
 ///
@@ -136,4 +136,4 @@ private:
     Qt::SortOrder m_order = Qt::AscendingOrder;
 };
 
-} // namespace us3
+} // namespace s3desktop

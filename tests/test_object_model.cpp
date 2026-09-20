@@ -7,7 +7,7 @@
 #include <QTest>
 #include <QTimeZone>
 
-using namespace us3;
+using namespace s3desktop;
 
 /// The object table's filtering, folder synthesis and sorting.
 ///

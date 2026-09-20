@@ -15,7 +15,7 @@ class QPushButton;
 class QTimer;
 class QToolBar;
 
-namespace us3 {
+namespace s3desktop {
 
 class BucketManager;
 class ConnectDialog;
@@ -169,4 +169,4 @@ private:
     QStringList m_pendingDrop;
 };
 
-} // namespace us3
+} // namespace s3desktop

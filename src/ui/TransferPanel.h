@@ -7,7 +7,7 @@ class QPushButton;
 class QTableWidget;
 class QTimer;
 
-namespace us3 {
+namespace s3desktop {
 
 class TransferQueue;
 
@@ -55,4 +55,4 @@ private:
     bool m_refreshPending = false;
 };
 
-} // namespace us3
+} // namespace s3desktop

@@ -2,7 +2,7 @@
 
 #include <QRegularExpression>
 
-namespace us3 {
+namespace s3desktop {
 
 const QString S3Config::Transient = QStringLiteral("<Transient>");
 
@@ -129,4 +129,4 @@ QString S3Config::validate() const {
     return {};
 }
 
-} // namespace us3
+} // namespace s3desktop

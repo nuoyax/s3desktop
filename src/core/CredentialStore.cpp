@@ -12,7 +12,7 @@
 #  include <wincrypt.h>
 #endif
 
-namespace us3 {
+namespace s3desktop {
 
 namespace {
 
@@ -32,7 +32,7 @@ bool dpapiProtect(const QByteArray &plain, QByteArray *out, QString *error) {
     in.cbData = static_cast<DWORD>(plain.size());
 
     DATA_BLOB result{};
-    if (!CryptProtectData(&in, L"BucketExplorer", nullptr, nullptr, nullptr, 0, &result)) {
+    if (!CryptProtectData(&in, L"S3 Desktop", nullptr, nullptr, nullptr, 0, &result)) {
         if (error) {
             *error = QStringLiteral("CryptProtectData failed with error %1").arg(GetLastError());
         }
@@ -200,4 +200,4 @@ bool CredentialStore::isOsProtected() const {
 #endif
 }
 
-} // namespace us3
+} // namespace s3desktop

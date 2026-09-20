@@ -4,7 +4,7 @@
 #include <QNetworkReply>
 #include <QXmlStreamReader>
 
-namespace us3 {
+namespace s3desktop {
 
 namespace {
 
@@ -278,4 +278,4 @@ QString S3Error::toString() const {
     return out;
 }
 
-} // namespace us3
+} // namespace s3desktop

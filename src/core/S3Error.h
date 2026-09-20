@@ -5,7 +5,7 @@
 #include <QByteArray>
 #include <QString>
 
-namespace us3 {
+namespace s3desktop {
 
 /// A one-word name for an ErrorKind, for log lines. Kept next to the enum in
 /// S3Types.h so a new member cannot be added without a name to print.
@@ -68,4 +68,4 @@ private:
     QString m_requestId;
 };
 
-} // namespace us3
+} // namespace s3desktop

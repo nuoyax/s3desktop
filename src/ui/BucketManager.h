@@ -10,7 +10,7 @@ class QLineEdit;
 class QPushButton;
 class QTableWidget;
 
-namespace us3 {
+namespace s3desktop {
 
 class S3Client;
 
@@ -61,4 +61,4 @@ private:
     QString m_chosen;
 };
 
-} // namespace us3
+} // namespace s3desktop

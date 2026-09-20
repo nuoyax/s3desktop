@@ -2,7 +2,7 @@
 
 #include <QString>
 
-namespace us3 {
+namespace s3desktop {
 
 /// TLS policy for a connection.
 ///
@@ -77,4 +77,4 @@ public:
     QString validate() const;
 };
 
-} // namespace us3
+} // namespace s3desktop

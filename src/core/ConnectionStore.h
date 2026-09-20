@@ -8,7 +8,7 @@
 
 #include <memory>
 
-namespace us3 {
+namespace s3desktop {
 
 class CredentialStore;
 
@@ -61,4 +61,4 @@ private:
     std::unique_ptr<CredentialStore> m_credentials;
 };
 
-} // namespace us3
+} // namespace s3desktop

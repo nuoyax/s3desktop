@@ -12,7 +12,7 @@
 #include <QProcessEnvironment>
 #include <QStandardPaths>
 
-namespace us3 {
+namespace s3desktop {
 
 namespace {
 
@@ -37,7 +37,7 @@ ConnectionStore::~ConnectionStore() = default;
 bool ConnectionStore::load(QString *warning) {
     m_configDir = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
     if (m_configDir.isEmpty()) {
-        m_configDir = QDir::homePath() + QStringLiteral("/.bucketexplorer");
+        m_configDir = QDir::homePath() + QStringLiteral("/.s3desktop");
     }
     if (!QDir().mkpath(m_configDir)) {
         if (warning) {
@@ -269,4 +269,4 @@ S3Config ConnectionStore::fromCommandLine(QStringList *warnings) {
     return c;
 }
 
-} // namespace us3
+} // namespace s3desktop

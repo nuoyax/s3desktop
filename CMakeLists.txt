@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(bucketexplorer
+project(s3desktop
     VERSION 0.1.0
     DESCRIPTION "A desktop browser for S3-compatible object storage"
     LANGUAGES CXX)
@@ -15,13 +15,13 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
 endif()
 
-option(BUCKETEXPLORER_BUILD_TESTS "Build unit tests" ON)
+option(S3DESKTOP_BUILD_TESTS "Build unit tests" ON)
 
 # Static linking is opt-in rather than inferred from the Qt build: a static Qt
 # install is a separate prefix, and guessing from Qt6Core_LIBRARIES would make
 # the build silently change character when someone points CMAKE_PREFIX_PATH at a
 # different Qt. Off by default so the shipped Qt works out of the box.
-option(BUCKETEXPLORER_STATIC "Link Qt statically; requires a static Qt build" OFF)
+option(S3DESKTOP_STATIC "Link Qt statically; requires a static Qt build" OFF)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network)
 
@@ -29,7 +29,7 @@ find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network)
 # Core library: S3 transport, config, credentials, transfers.
 # Kept separate from the GUI so tests can link it without a display.
 # ---------------------------------------------------------------------------
-add_library(bucketexplorer_core STATIC
+add_library(s3desktop_core STATIC
     src/core/Log.cpp
     src/core/Log.h
     src/core/SigV4.cpp
@@ -51,13 +51,13 @@ add_library(bucketexplorer_core STATIC
     src/compat/TargetProfile.h
 )
 
-target_include_directories(bucketexplorer_core PUBLIC src)
-target_link_libraries(bucketexplorer_core PUBLIC Qt6::Core Qt6::Network)
+target_include_directories(s3desktop_core PUBLIC src)
+target_link_libraries(s3desktop_core PUBLIC Qt6::Core Qt6::Network)
 
 # DPAPI lives in Crypt32; linking it here rather than at the executable keeps
 # the dependency attached to the code that actually calls CryptProtectData.
 if(WIN32)
-    target_link_libraries(bucketexplorer_core PUBLIC crypt32)
+    target_link_libraries(s3desktop_core PUBLIC crypt32)
 endif()
 
 # ---------------------------------------------------------------------------
@@ -67,7 +67,7 @@ endif()
 # widget-level logic — the object model, the theme — can be tested without
 # launching the whole window. Everything below needs Widgets.
 # ---------------------------------------------------------------------------
-add_library(bucketexplorer_ui STATIC
+add_library(s3desktop_ui STATIC
     src/ui/Theme.cpp
     src/ui/Theme.h
     src/ui/ObjectModel.cpp
@@ -84,24 +84,24 @@ add_library(bucketexplorer_ui STATIC
     src/ui/MainWindow.h
 )
 
-target_link_libraries(bucketexplorer_ui PUBLIC
-    bucketexplorer_core
+target_link_libraries(s3desktop_ui PUBLIC
+    s3desktop_core
     Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network)
 
 # ---------------------------------------------------------------------------
 # GUI executable
 # ---------------------------------------------------------------------------
-add_executable(bucketexplorer WIN32
+add_executable(s3desktop WIN32
     src/main.cpp
     assets/resources.qrc
 )
 
-target_link_libraries(bucketexplorer PRIVATE bucketexplorer_ui)
+target_link_libraries(s3desktop PRIVATE s3desktop_ui)
 
 # ---------------------------------------------------------------------------
 # Static Qt
 # ---------------------------------------------------------------------------
-if(BUCKETEXPLORER_STATIC)
+if(S3DESKTOP_STATIC)
     # A static Qt links no plugin by default, so the platform, style, TLS and
     # image-format plugins have to be named explicitly. Without the windows
     # plugin the executable builds cleanly and then dies at startup with "this
@@ -112,7 +112,7 @@ if(BUCKETEXPLORER_STATIC)
     # These are not optional for this application: it is a GUI app (platform),
     # it talks to an https endpoint (TLS), and it displays PNG/ICO assets
     # (imageformats).
-    qt_import_plugins(bucketexplorer
+    qt_import_plugins(s3desktop
         INCLUDE_BY_TYPE
             platforms Qt6::QWindowsIntegrationPlugin
             styles Qt6::QModernWindowsStylePlugin
@@ -123,14 +123,14 @@ if(BUCKETEXPLORER_STATIC)
     if(MINGW)
         # -static also binds libgcc, libstdc++ and libwinpthread, so the result
         # does not depend on the toolchain's runtime DLLs being on PATH either.
-        target_link_options(bucketexplorer PRIVATE -static)
+        target_link_options(s3desktop PRIVATE -static)
     endif()
 endif()
 
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
-if(BUCKETEXPLORER_BUILD_TESTS)
+if(S3DESKTOP_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif()

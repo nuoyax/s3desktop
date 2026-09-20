@@ -7,7 +7,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 
-using namespace us3;
+using namespace s3desktop;
 
 /// The transfer queue's bookkeeping, exercised without a server.
 ///

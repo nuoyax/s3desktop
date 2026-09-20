@@ -9,7 +9,7 @@ class QLineEdit;
 class QTableView;
 class QToolButton;
 
-namespace us3 {
+namespace s3desktop {
 
 class ObjectModel;
 class S3Client;
@@ -154,4 +154,4 @@ private:
     int m_historyIndex = -1;
 };
 
-} // namespace us3
+} // namespace s3desktop

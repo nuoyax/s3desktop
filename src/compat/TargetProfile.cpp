@@ -2,7 +2,7 @@
 
 #include <QRegularExpression>
 
-namespace us3 {
+namespace s3desktop {
 
 namespace {
 
@@ -124,4 +124,4 @@ TargetProfile TargetProfile::byId(const QString &id) {
     return generic();
 }
 
-} // namespace us3
+} // namespace s3desktop

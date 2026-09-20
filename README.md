@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="assets/icon.svg" alt="BucketExplorer" width="96" height="96">
+<img src="assets/icon.svg" alt="S3 Desktop" width="96" height="96">
 
-# BucketExplorer
+# S3 Desktop
 
 **A fast, native desktop client for S3 and S3-compatible object storage.**
 
@@ -19,12 +19,12 @@ UCloud US3 · AWS S3 · MinIO · anything that speaks the S3 API
 
 ---
 
-BucketExplorer is a **Qt rewrite** of [pteich/us3ui](https://github.com/pteich/us3ui).
-It is not a port: no line of the original Go/Fyne code was translated. The feature
-set was reimplemented from scratch on top of Qt 6 and a hand-written SigV4 signer,
-because the original's structure — a single 1150-line window that called into a
-vendor SDK from a background goroutine — is what made its bugs hard to fix in the
-first place.
+S3 Desktop is a **Qt rewrite** of an earlier MIT-licensed Go/Fyne client for
+S3-compatible storage. It is not a port: no line of the original Go/Fyne code was
+translated. The feature set was reimplemented from scratch on top of Qt 6 and a
+hand-written SigV4 signer, because the original's structure — a single 1150-line
+window that called into a vendor SDK from a background goroutine — is what made
+its bugs hard to fix in the first place.
 
 ## Contents
 
@@ -35,6 +35,7 @@ first place.
 - [Tests](#tests)
 - [Logs](#logs)
 - [Layout](#layout)
+- [Versioning](#versioning)
 - [License](#license)
 
 ## What it does
@@ -94,7 +95,7 @@ cmake --build build
 ```
 
 > [!NOTE]
-> The binary lands at `build/bucketexplorer.exe`. On Windows it is built as a GUI
+> The binary lands at `build/s3desktop.exe`. On Windows it is built as a GUI
 > subsystem executable, so it will not attach a console window.
 
 ## Static build
@@ -121,11 +122,11 @@ Then point the project at that prefix and turn the option on:
 ```sh
 cmake -S . -B build-static -G Ninja -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_PREFIX_PATH=C:/Qt/6.9.3/mingw1310_64_static \
-      -DBUCKETEXPLORER_STATIC=ON
+      -DS3DESKTOP_STATIC=ON
 cmake --build build-static
 ```
 
-`BUCKETEXPLORER_STATIC` is off by default and deliberately not inferred from the
+`S3DESKTOP_STATIC` is off by default and deliberately not inferred from the
 Qt install: a static Qt is a separate prefix, and guessing from `Qt6Core_LIBRARIES`
 would make the build silently change character when `CMAKE_PREFIX_PATH` moves.
 
@@ -138,7 +139,7 @@ would make the build silently change character when `CMAKE_PREFIX_PATH` moves.
 > under MinGW it also passes `-static` so libgcc, libstdc++ and libwinpthread are
 > bound in rather than left as DLLs.
 
-Result: `bucketexplorer.exe` at ~51 MB, importing only Windows system DLLs — no
+Result: `s3desktop.exe` at ~51 MB, importing only Windows system DLLs — no
 `Qt6*.dll`, no `libgcc_s_seh-1.dll`, no `libstdc++-6.dll`, no
 `libwinpthread-1.dll`.
 
@@ -151,7 +152,7 @@ ctest --test-dir build --output-on-failure
 > [!IMPORTANT]
 > The test binaries link Qt dynamically, so Qt's `bin` directory has to be on
 > `PATH` (`C:/Qt/6.9.3/mingw_64/bin`); without it they exit with `0xc0000135`
-> before running a single case. A `-DBUCKETEXPLORER_STATIC=ON` build has no such
+> before running a single case. A `-DS3DESKTOP_STATIC=ON` build has no such
 > requirement — the suite runs with nothing but `C:\Windows\system32` on `PATH`.
 
 Six suites, none of which need a display or a network:
@@ -167,9 +168,9 @@ Six suites, none of which need a display or a network:
 
 ## Logs
 
-Every run writes `bucketexplorer.log` beside `settings.json` — on Windows that is
-`%LOCALAPPDATA%\bucketexplorer\bucketexplorer\`. The previous run is kept as
-`bucketexplorer.log.1`.
+Every run writes `s3desktop.log` beside `settings.json` — on Windows that is
+`%LOCALAPPDATA%\s3desktop\s3desktop\`. The previous run is kept as
+`s3desktop.log.1`.
 
 Each request records the URL that was actually built, the host that was actually
 signed, the port used, and the credential store's verdict on the secret. A
@@ -177,7 +178,7 @@ failure adds the HTTP status, the server's `<Code>` and request id, and the
 response body, which for a signature problem is the only place the real reason
 appears. Secrets are redacted to four characters and two.
 
-Set `BUCKETEXPLORER_LOG` to override the path, or to `off` to turn logging off.
+Set `S3DESKTOP_LOG` to override the path, or to `off` to turn logging off.
 
 ## Layout
 
@@ -192,6 +193,14 @@ tests/        Qt Test suites
 can be wrong without a user noticing is testable in isolation. `ui` is a separate
 static library so the model and theme can be exercised under a `QApplication`
 without opening the main window.
+
+## Versioning
+
+`VERSION` holds the current release, one bare number per line. The **Check for
+updates** action fetches that file from this repository's default branch and
+compares it against the version compiled into the binary; if this build is older
+it offers to open the project page. Bumping a release means editing `VERSION`
+and `kVersion` in `src/ui/MainWindow.cpp` together.
 
 ## License
 
