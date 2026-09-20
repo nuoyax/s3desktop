@@ -863,7 +863,7 @@ void MainWindow::onSearchChanged(const QString &text) {
     if (m_model->showingBuckets()) {
         // Bucket rows are local, so a search over them is complete rather than
         // partial, and saying so would be noise.
-        setStatusMessage(text.isEmpty() ? QString() : QString());
+        setStatusMessage(QString());
         return;
     }
 
