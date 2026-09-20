@@ -1,22 +1,46 @@
+<div align="center">
+
+<img src="assets/icon.svg" alt="BucketExplorer" width="96" height="96">
+
 # BucketExplorer
+
+**一款快速的原生 S3 兼容对象存储桌面客户端。**
+
+UCloud US3 · AWS S3 · MinIO · 以及任何实现了 S3 API 的服务
+
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Platform: Windows 11](https://img.shields.io/badge/platform-Windows%2011-0078D4.svg)](#构建)
+[![Qt 6](https://img.shields.io/badge/Qt-6.9-41CD52.svg)](https://www.qt.io/)
+[![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C.svg)](#构建)
 
 [English](README.md) | **中文**
 
-一个面向 S3 及 S3 兼容对象存储的桌面浏览器——UCloud US3、AWS S3、MinIO，
-以及任何实现了 S3 API 的服务。
+</div>
+
+---
 
 本项目是 [pteich/us3ui](https://github.com/pteich/us3ui) 的 **Qt 重写版**。
 它不是移植：原版 Go/Fyne 代码没有一行被翻译过来。全部功能基于 Qt 6 与自行
 实现的 SigV4 签名器从零重写，因为原版的结构——一个 1150 行、从后台 goroutine
 调用厂商 SDK 的单一窗口——正是它的缺陷难以修复的根源。
 
+## 目录
+
+- [功能](#功能)
+- [与原版的差异及原因](#与原版的差异及原因)
+- [构建](#构建)
+- [测试](#测试)
+- [日志](#日志)
+- [目录结构](#目录结构)
+- [许可证](#许可证)
+
 ## 功能
 
 | | |
 |---|---|
 | **连接管理** | 本地保存的命名配置：endpoint、Access Key、Secret Key、桶、区域、前缀、TLS、寻址方式。对话框内置「测试连接」。 |
-| **浏览** | 先列桶，再显示按文件夹归组的对象表；面包屑导航，支持后退/前进/上级（Alt+← / Alt+→ / Alt+↑）。 |
-| **桶根目录** | 连接未填写桶时，根目录直接展示该账号的桶列表——它是独立的一层，有自己的面包屑，而不是某个 Key 前缀的替身。打开某个桶后显示其对象，路径变为 `Buckets › 桶 › 目录 › …`；点击面包屑或按 Alt+↑ 可退回桶列表。 |
+| **浏览** | 先列桶，再显示按文件夹归组的对象表；面包屑导航，支持后退/前进/上级（`Alt+←` / `Alt+→` / `Alt+↑`）。 |
+| **桶根目录** | 连接未填写桶时，根目录直接展示该账号的桶列表——它是独立的一层，有自己的面包屑，而不是某个 Key 前缀的替身。打开某个桶后显示其对象，路径变为 `Buckets › 桶 › 目录 › …`；点击面包屑或按 `Alt+↑` 可退回桶列表。 |
 | **搜索与排序** | 对已加载对象做客户端过滤；按名称、大小或修改时间排序，遵循区域设置并识别数字。文件夹始终排在文件之前。 |
 | **分页** | 每次加载 500 个对象，从上一页结束处继续；「加载更多」为追加而非替换，因此 5 万对象的桶依然流畅。 |
 | **详情** | 显示选中对象的 Key、大小、修改时间、ETag 与存储类型。 |
@@ -49,9 +73,11 @@ API）加密，只有保存它的用户账户能读取。原版是明文 JSON。
 
 ## 构建
 
-需要 Qt 6（Core、Gui、Widgets、Network，测试套件另需 Test）、CMake 3.21+
-以及支持 C++17 的编译器。已在 Windows 11 上以 Qt 6.9.3（mingw_64）、
-GCC 13.1.0、CMake 4.0.1、Ninja 验证通过。
+**依赖：** Qt 6（Core、Gui、Widgets、Network，测试套件另需 Test）、
+CMake 3.21+ 以及支持 C++17 的编译器。
+
+已在 Windows 11 上以 Qt 6.9.3（mingw_64）、GCC 13.1.0、CMake 4.0.1、
+Ninja 验证通过。
 
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
@@ -59,7 +85,8 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
 cmake --build build
 ```
 
-产物为 `build/bucketexplorer.exe`。Windows 下按 GUI 子系统编译，不会附带控制台窗口。
+> [!NOTE]
+> 产物为 `build/bucketexplorer.exe`。Windows 下按 GUI 子系统编译，不会附带控制台窗口。
 
 ## 测试
 
@@ -67,19 +94,21 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-测试程序动态链接 Qt，因此需要把 Qt 的 `bin` 目录加入 `PATH`
-（`C:/Qt/6.9.3/mingw_64/bin`）；否则会在运行任何用例之前以
-`0xc0000135` 退出。
+> [!IMPORTANT]
+> 测试程序动态链接 Qt，因此需要把 Qt 的 `bin` 目录加入 `PATH`
+> （`C:/Qt/6.9.3/mingw_64/bin`）；否则会在运行任何用例之前以
+> `0xc0000135` 退出。
 
 六个测试套件，均不需要显示器或网络：
 
-- `test_sigv4` —— 签名器，对照 AWS 官方示例与测试套件向量
-- `test_list_parser` —— XML 列表响应解析，含厂商差异与错误码映射
-- `test_target_profile` —— 各厂商的主机名组织与区域推导
-- `test_transfer_queue` —— 传输状态机
-- `test_object_model` —— 过滤、文件夹归组、排序，以及桶列表模式
-- `test_object_browser` —— 后退/前进/上级、各层级的面包屑，以及对象命令
-  允许看到哪些行
+| 套件 | 覆盖内容 |
+|---|---|
+| `test_sigv4` | 签名器，对照 AWS 官方示例与测试套件向量 |
+| `test_list_parser` | XML 列表响应解析，含厂商差异与错误码映射 |
+| `test_target_profile` | 各厂商的主机名组织与区域推导 |
+| `test_transfer_queue` | 传输状态机 |
+| `test_object_model` | 过滤、文件夹归组、排序，以及桶列表模式 |
+| `test_object_browser` | 后退/前进/上级、各层级的面包屑，以及对象命令允许看到哪些行 |
 
 ## 日志
 
@@ -108,4 +137,4 @@ tests/        Qt Test 测试套件
 
 ## 许可证
 
-MIT，与原版一致。
+MIT，与原版一致。详见 [LICENSE](LICENSE)。
