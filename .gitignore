@@ -27,3 +27,6 @@ tests/*_test.exe
 CLAUDE.md
 .mcp.json
 .claudeignore
+
+# Unmasked source screenshot for assets/screenshot.png — never commit
+ScreenShot_*.png
