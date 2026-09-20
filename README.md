@@ -88,6 +88,19 @@ Five suites, none of which need a display or a network:
 - `test_transfer_queue` — the transfer state machine
 - `test_object_model` — filtering, folder grouping, and sorting
 
+## Logs
+
+Every run writes `us3qt.log` beside `settings.json` — on Windows that is
+`%LOCALAPPDATA%\us3qt\us3qt\`. The previous run is kept as `us3qt.log.1`.
+
+Each request records the URL that was actually built, the host that was actually
+signed, the port used, and the credential store's verdict on the secret. A
+failure adds the HTTP status, the server's `<Code>` and request id, and the
+response body, which for a signature problem is the only place the real reason
+appears. Secrets are redacted to four characters and two.
+
+`US3QT_LOG` overrides the path, or turns logging off with `off`.
+
 ## Layout
 
 ```

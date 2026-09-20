@@ -78,6 +78,17 @@ ctest --test-dir build --output-on-failure
 - `test_transfer_queue` —— 传输状态机
 - `test_object_model` —— 过滤、文件夹归组与排序
 
+## 日志
+
+每次运行都会在 `settings.json` 同目录写入 `us3qt.log`——Windows 下为
+`%LOCALAPPDATA%\us3qt\us3qt\`。上一次的日志保留为 `us3qt.log.1`。
+
+日志记录每次请求真实拼出的 URL、真实参与签名的主机、使用的端口，以及凭据
+存储对密钥的判断结果。失败时追加 HTTP 状态码、服务端 `<Code>` 与请求 ID，
+以及响应体——签名类问题只有响应体会写明真正的原因。密钥会脱敏为前四后二。
+
+`US3QT_LOG` 可指定路径，设为 `off` 则关闭日志。
+
 ## 目录结构
 
 ```
