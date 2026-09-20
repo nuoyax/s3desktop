@@ -1,0 +1,11 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <!--
+      The application icon is compiled in rather than loaded from disk so a
+      single executable is self-contained. Everything else the UI draws is
+      generated at runtime by Theme::icon().
+    -->
+    <qresource prefix="/">
+        <file>icon.svg</file>
+    </qresource>
+</RCC>
