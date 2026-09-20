@@ -17,6 +17,12 @@ endif()
 
 option(BUCKETEXPLORER_BUILD_TESTS "Build unit tests" ON)
 
+# Static linking is opt-in rather than inferred from the Qt build: a static Qt
+# install is a separate prefix, and guessing from Qt6Core_LIBRARIES would make
+# the build silently change character when someone points CMAKE_PREFIX_PATH at a
+# different Qt. Off by default so the shipped Qt works out of the box.
+option(BUCKETEXPLORER_STATIC "Link Qt statically; requires a static Qt build" OFF)
+
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network)
 
 # ---------------------------------------------------------------------------
@@ -91,6 +97,35 @@ add_executable(bucketexplorer WIN32
 )
 
 target_link_libraries(bucketexplorer PRIVATE bucketexplorer_ui)
+
+# ---------------------------------------------------------------------------
+# Static Qt
+# ---------------------------------------------------------------------------
+if(BUCKETEXPLORER_STATIC)
+    # A static Qt links no plugin by default, so the platform, style, TLS and
+    # image-format plugins have to be named explicitly. Without the windows
+    # plugin the executable builds cleanly and then dies at startup with "this
+    # application failed to start because no Qt platform plugin could be
+    # initialized" — the failure is at runtime, so it is worth stating here
+    # rather than leaving it to be rediscovered.
+    #
+    # These are not optional for this application: it is a GUI app (platform),
+    # it talks to an https endpoint (TLS), and it displays PNG/ICO assets
+    # (imageformats).
+    qt_import_plugins(bucketexplorer
+        INCLUDE_BY_TYPE
+            platforms Qt6::QWindowsIntegrationPlugin
+            styles Qt6::QModernWindowsStylePlugin
+            tls Qt6::QSchannelBackendPlugin
+            imageformats Qt6::QICOPlugin Qt6::QJpegPlugin Qt6::QGifPlugin
+    )
+
+    if(MINGW)
+        # -static also binds libgcc, libstdc++ and libwinpthread, so the result
+        # does not depend on the toolchain's runtime DLLs being on PATH either.
+        target_link_options(bucketexplorer PRIVATE -static)
+    endif()
+endif()
 
 # ---------------------------------------------------------------------------
 # Tests

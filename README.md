@@ -31,6 +31,7 @@ first place.
 - [What it does](#what-it-does)
 - [Differences from the original, and why](#differences-from-the-original-and-why)
 - [Build](#build)
+- [Static build](#static-build)
 - [Tests](#tests)
 - [Logs](#logs)
 - [Layout](#layout)
@@ -96,6 +97,51 @@ cmake --build build
 > The binary lands at `build/bucketexplorer.exe`. On Windows it is built as a GUI
 > subsystem executable, so it will not attach a console window.
 
+## Static build
+
+A single self-contained `.exe` with no Qt DLLs beside it — nothing to install,
+nothing to put on `PATH`, nothing to break when a redistributable is missing.
+
+Qt's own MinGW packages ship **import libraries**, not static ones: every member
+of their `libQt6Core.a` is named `Qt6Core_dll_*.o`, so `-static` can only resolve
+the references, never eliminate the DLL dependency. A genuinely static Qt has to
+be built from source:
+
+```sh
+# configure.bat in a qtbase source tree
+configure.bat -static -static-runtime -release -opensource -confirm-license \
+              -nomake examples -nomake tests -no-dbus -no-icu -platform win32-g++
+# then, with Ninja
+cmake --build . --parallel
+cmake --install . --prefix C:/Qt/6.9.3/mingw1310_64_static
+```
+
+Then point the project at that prefix and turn the option on:
+
+```sh
+cmake -S . -B build-static -G Ninja -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_PREFIX_PATH=C:/Qt/6.9.3/mingw1310_64_static \
+      -DBUCKETEXPLORER_STATIC=ON
+cmake --build build-static
+```
+
+`BUCKETEXPLORER_STATIC` is off by default and deliberately not inferred from the
+Qt install: a static Qt is a separate prefix, and guessing from `Qt6Core_LIBRARIES`
+would make the build silently change character when `CMAKE_PREFIX_PATH` moves.
+
+> [!IMPORTANT]
+> A static Qt links **no plugins by default**. Without importing the Windows
+> platform plugin the executable compiles and links cleanly, then dies at startup
+> with *"no Qt platform plugin could be initialized"*. The build imports
+> `QWindowsIntegrationPlugin`, `QModernWindowsStylePlugin`,
+> `QSchannelBackendPlugin` (TLS), and the ICO/JPEG/GIF image formats by type;
+> under MinGW it also passes `-static` so libgcc, libstdc++ and libwinpthread are
+> bound in rather than left as DLLs.
+
+Result: `bucketexplorer.exe` at ~51 MB, importing only Windows system DLLs — no
+`Qt6*.dll`, no `libgcc_s_seh-1.dll`, no `libstdc++-6.dll`, no
+`libwinpthread-1.dll`.
+
 ## Tests
 
 ```sh
@@ -105,7 +151,8 @@ ctest --test-dir build --output-on-failure
 > [!IMPORTANT]
 > The test binaries link Qt dynamically, so Qt's `bin` directory has to be on
 > `PATH` (`C:/Qt/6.9.3/mingw_64/bin`); without it they exit with `0xc0000135`
-> before running a single case.
+> before running a single case. A `-DBUCKETEXPLORER_STATIC=ON` build has no such
+> requirement — the suite runs with nothing but `C:\Windows\system32` on `PATH`.
 
 Six suites, none of which need a display or a network:
 

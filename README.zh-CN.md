@@ -29,6 +29,7 @@ UCloud US3 · AWS S3 · MinIO · 以及任何实现了 S3 API 的服务
 - [功能](#功能)
 - [与原版的差异及原因](#与原版的差异及原因)
 - [构建](#构建)
+- [静态编译](#静态编译)
 - [测试](#测试)
 - [日志](#日志)
 - [目录结构](#目录结构)
@@ -88,6 +89,48 @@ cmake --build build
 > [!NOTE]
 > 产物为 `build/bucketexplorer.exe`。Windows 下按 GUI 子系统编译，不会附带控制台窗口。
 
+## 静态编译
+
+单个自包含的 `.exe`，旁边不需要任何 Qt DLL——无需安装、无需配 `PATH`、
+也不会因为缺少运行库而启动失败。
+
+Qt 官方 MinGW 包提供的是**导入库**而非静态库：其 `libQt6Core.a` 中每个成员都叫
+`Qt6Core_dll_*.o`，因此 `-static` 只能解析引用，无法消除对 DLL 的依赖。真正
+静态的 Qt 必须从源码构建：
+
+```sh
+# 在 qtbase 源码树中执行 configure.bat
+configure.bat -static -static-runtime -release -opensource -confirm-license \
+              -nomake examples -nomake tests -no-dbus -no-icu -platform win32-g++
+# 然后用 Ninja
+cmake --build . --parallel
+cmake --install . --prefix C:/Qt/6.9.3/mingw1310_64_static
+```
+
+随后让工程指向该前缀并打开开关：
+
+```sh
+cmake -S . -B build-static -G Ninja -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_PREFIX_PATH=C:/Qt/6.9.3/mingw1310_64_static \
+      -DBUCKETEXPLORER_STATIC=ON
+cmake --build build-static
+```
+
+`BUCKETEXPLORER_STATIC` 默认为关，且刻意不从 Qt 安装推断：静态 Qt 是另一套前缀，
+若从 `Qt6Core_LIBRARIES` 猜测，`CMAKE_PREFIX_PATH` 一旦改指别处，构建方式就会
+在无人察觉的情况下改变。
+
+> [!IMPORTANT]
+> 静态 Qt **默认不链接任何插件**。若不导入 Windows 平台插件，程序能正常编译
+> 链接，却在启动时报 *「no Qt platform plugin could be initialized」* 而退出。
+> 构建中按类型显式导入了 `QWindowsIntegrationPlugin`、`QModernWindowsStylePlugin`、
+> `QSchannelBackendPlugin`（TLS）以及 ICO/JPEG/GIF 图像格式；MinGW 下同时传入
+> `-static`，使 libgcc、libstdc++ 与 libwinpthread 一并静态绑定，而不是留作 DLL。
+
+结果：`bucketexplorer.exe` 约 51 MB，仅导入 Windows 系统 DLL——没有
+`Qt6*.dll`、没有 `libgcc_s_seh-1.dll`、没有 `libstdc++-6.dll`、
+没有 `libwinpthread-1.dll`。
+
 ## 测试
 
 ```sh
@@ -97,7 +140,8 @@ ctest --test-dir build --output-on-failure
 > [!IMPORTANT]
 > 测试程序动态链接 Qt，因此需要把 Qt 的 `bin` 目录加入 `PATH`
 > （`C:/Qt/6.9.3/mingw_64/bin`）；否则会在运行任何用例之前以
-> `0xc0000135` 退出。
+> `0xc0000135` 退出。以 `-DBUCKETEXPLORER_STATIC=ON` 构建时无此要求——
+> `PATH` 中只有 `C:\Windows\system32` 也能跑完整套件。
 
 六个测试套件，均不需要显示器或网络：
 
